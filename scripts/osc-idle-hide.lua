@@ -11,6 +11,13 @@
 -- Nothing here changes what the OSC does while the mouse is actually moving.
 
 local IDLE   = 2      -- seconds of a stationary mouse before the OSC goes
+-- ...but longer while the pointer is down on the seek bar, because since
+-- seek-thumbnail.lua that is where you hold still ON PURPOSE, to look at the
+-- preview frame. At a flat 2s the thumbnail vanished exactly when you stopped
+-- to read it. Still bounded, so a mouse parked there and abandoned - the
+-- original complaint this script exists for - clears on its own.
+local IDLE_SEEK   = 6
+local SEEK_ZONE   = 0.88   -- same strip seek-thumbnail.lua watches
 local JITTER = 4      -- px; below this a "move" is just sensor noise (same
                       -- floor mouse-progress.lua uses)
 
@@ -44,6 +51,10 @@ local function hide()
     if not hidden then
         mp.commandv("script-message", "osc-visibility", "never", "no-osd")
         hidden = true
+        -- seek-thumbnail.lua draws its preview as a separate overlay, which
+        -- would otherwise be left floating above a controller that is no
+        -- longer there. Let it drop the thumbnail at the same moment.
+        mp.commandv("script-message", "osc-idle-hidden")
     end
 end
 
@@ -69,5 +80,7 @@ mp.observe_property("mouse-pos", "native", function(_, pos)
 
     show()
     timer:kill()                    -- restart the countdown from this movement
+    local _, h = mp.get_osd_size()
+    timer.timeout = (h and h > 0 and pos.y >= h * SEEK_ZONE) and IDLE_SEEK or IDLE
     timer:resume()
 end)

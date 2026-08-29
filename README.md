@@ -134,6 +134,15 @@ Things that cost real time here, all recorded in the config comments too:
   a test that passes a single file does *not* get a 1-file playlist.
 - The launcher exposes a permanent IPC socket at `/tmp/mpv-single.sock` — the
   way to inspect a live session without touching the config.
+- The OSC's seek bar does **not** span the window: in the default bottombar
+  layout it is inset between the elapsed and remaining timecodes (x≈234..874 in
+  a 1280-wide window). Mapping a pointer across the full width instead is out by
+  ~24s mid-bar on a 3-minute file. `seek-thumbnail.lua` derives the real bounds
+  from osc.lua's own constants.
+- mpv's OSC is compiled into the binary, not shipped as a file — but its Lua
+  source is still recoverable with
+  `strings /opt/homebrew/bin/mpv | grep -n 'local function bar_layout'`, which
+  is where those constants came from.
 - thumbfast spawns its helper by the bare name `mpv`, which relies on `PATH`. A
   GUI app launched from Finder does not inherit the shell `PATH`, so under
   `mpv.app` the spawn fails **silently** — no thumbnail, no error, while it

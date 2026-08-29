@@ -23,7 +23,7 @@
 -- top-left corner where mpv puts them - osd-align-y is global and would have
 -- moved those as well.
 -- Colour and opacity match the seek bar and the volume bar: 50DC82 at ASS
--- alpha 143, which is the ~44% the rest of the OSD uses.
+-- alpha 51, which is the ~80% the rest of the OSD uses.
 
 local mp = require 'mp'
 
@@ -62,7 +62,7 @@ end)
 -- ---- the readout under the bar --------------------------------------------
 
 local TEXT_COLOUR = "&H82DC50&"   -- ASS is &HBBGGRR&, i.e. 50DC82 reversed
-local TEXT_ALPHA  = "&H8F&"       -- 143: ~44% opaque, same as the bars
+local TEXT_ALPHA  = "&H33&"       -- 51: ~80% opaque, same as the bars
 local TEXT_FRAC   = 0.038         -- font size as a fraction of screen height
 local MARGIN_X    = 16
 

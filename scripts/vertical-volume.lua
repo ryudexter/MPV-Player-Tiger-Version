@@ -19,9 +19,12 @@ local opts = {
     label_frac   = 0.030,  -- % label text size, fraction of screen height
     timeout      = 1.2,    -- seconds on screen
     -- ASS alpha is inverted vs mpv's #AARRGGBB: 0 = opaque, 255 = invisible.
-    -- 143 (0x8F) ~= 44% opaque, matching the seek bar.
-    alpha        = 143,
-    track_alpha  = 208,
+    -- 51 (0x33) ~= 80% opaque, matching osd-color in mpv.conf.
+    -- Was 143 (~44%), which disappeared over bright footage.
+    alpha        = 51,
+    -- the unfilled part of the track, kept much fainter than the fill
+    -- (166 ~= 35% opaque; was 208 ~= 18%, too faint to show the bar's extent)
+    track_alpha  = 166,
     -- bar colour as RRGGBB (ASS wants it byte-reversed, handled below)
     color        = "50DC82",
 }

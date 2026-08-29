@@ -10,12 +10,6 @@
 -- OSC to go away; the next real movement hands control straight back to it.
 -- Nothing here changes what the OSC does while the mouse is actually moving.
 
--- uosc replaces mpv's built-in OSC, and mpv.conf turns the built-in one off
--- when uosc is installed. This script exists only to manage that built-in
--- controller, so with it gone there is nothing here to do and staying active
--- would only fight uosc's own equivalent. Stand down.
-if not mp.get_property_bool("osc") then return end
-
 local IDLE   = 2      -- seconds of a stationary mouse before the OSC goes
 -- ...but longer while the pointer is down on the seek bar, because since
 -- seek-thumbnail.lua that is where you hold still ON PURPOSE, to look at the

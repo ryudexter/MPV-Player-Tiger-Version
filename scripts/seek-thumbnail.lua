@@ -20,12 +20,6 @@
 local mp    = require 'mp'
 local utils = require 'mp.utils'
 
--- uosc replaces mpv's built-in OSC, and mpv.conf turns the built-in one off
--- when uosc is installed. This script exists only to manage that built-in
--- controller, so with it gone there is nothing here to do and staying active
--- would only fight uosc's own equivalent. Stand down.
-if not mp.get_property_bool("osc") then return end
-
 local BOTTOM_ZONE = 0.88   -- keep in step with mouse-progress.lua
 local GAP         = 12     -- px between the thumbnail and the OSC strip
 local MARGIN      = 8      -- px; keep the thumbnail clear of the screen edges

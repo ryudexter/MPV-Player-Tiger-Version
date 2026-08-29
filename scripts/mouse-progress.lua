@@ -27,12 +27,6 @@
 
 local mp = require 'mp'
 
--- uosc replaces mpv's built-in OSC, and mpv.conf turns the built-in one off
--- when uosc is installed. This script exists only to manage that built-in
--- controller, so with it gone there is nothing here to do and staying active
--- would only fight uosc's own equivalent. Stand down.
-if not mp.get_property_bool("osc") then return end
-
 local BOTTOM_ZONE = 0.88   -- below this fraction of the height the OSC takes over
 local MIN_MOVE    = 4      -- px; ignore pointer jitter
 local REPEAT_GAP  = 0.25   -- s; re-arm the bar while the mouse keeps moving

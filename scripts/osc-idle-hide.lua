@@ -1,0 +1,73 @@
+-- Hide the OSC when the mouse sits still, even while it is over the OSC itself.
+--
+-- mpv's own osc.lua refuses to auto-hide whenever the pointer is inside the OSC
+-- area (see its render loop: the hidetimeout is ignored while mouse_over_osc).
+-- With osc-deadzonesize=1 the only way to SEE the OSC is to put the pointer down
+-- there, so in this setup it could never time out at all - park the mouse at the
+-- bottom edge and the controls stayed up indefinitely.
+--
+-- This watches mouse-pos and, after IDLE seconds without real movement, tells the
+-- OSC to go away; the next real movement hands control straight back to it.
+-- Nothing here changes what the OSC does while the mouse is actually moving.
+
+local IDLE   = 2      -- seconds of a stationary mouse before the OSC goes
+local JITTER = 4      -- px; below this a "move" is just sensor noise (same
+                      -- floor mouse-progress.lua uses)
+
+local last_x, last_y = nil, nil
+local hidden = false
+local timer  = nil
+
+local function show()
+    if not hidden then return end
+    -- back to normal behaviour: the OSC decides for itself again
+    mp.commandv("script-message", "osc-visibility", "auto", "no-osd")
+    hidden = false
+
+    -- The movement that got us here reached the OSC while it was still in
+    -- "never", so it was ignored, and switching back to "auto" does not re-show
+    -- it for a pointer that is already sitting still. Replay the position as a
+    -- fresh event once the mode has landed. Measured: without this the controls
+    -- stay hidden until you leave the bottom edge and come back.
+    -- Offset by a pixel: mpv drops a mouse event that lands on the coordinates
+    -- the pointer is already at, so replaying the exact position is a no-op.
+    -- Staying on the same row keeps it inside the OSC's trigger zone.
+    if last_x and last_y then
+        local y  = math.floor(last_y)
+        local x  = math.floor(last_x)
+        local dx = x > 0 and -1 or 1
+        mp.add_timeout(0.05, function() mp.commandv("mouse", x + dx, y) end)
+    end
+end
+
+local function hide()
+    if not hidden then
+        mp.commandv("script-message", "osc-visibility", "never", "no-osd")
+        hidden = true
+    end
+end
+
+timer = mp.add_timeout(IDLE, hide)
+timer:kill()
+
+mp.observe_property("mouse-pos", "native", function(_, pos)
+    if not pos then return end
+
+    -- pointer left the window: let the OSC hide on its own terms
+    if pos.hover == false then
+        timer:kill()
+        show()
+        last_x, last_y = nil, nil
+        return
+    end
+
+    if last_x and math.abs(pos.x - last_x) < JITTER
+              and math.abs(pos.y - last_y) < JITTER then
+        return                      -- not a real move, keep the countdown running
+    end
+    last_x, last_y = pos.x, pos.y
+
+    show()
+    timer:kill()                    -- restart the countdown from this movement
+    timer:resume()
+end)

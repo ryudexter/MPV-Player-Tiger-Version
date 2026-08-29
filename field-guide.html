@@ -1,0 +1,360 @@
+<title>mpv Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground:   #FBF9FC;
+    --surface:  #FFFFFF;
+    --chip:     #F3EEF5;
+    --ink:      #1E1A22;
+    --muted:    #6C6474;
+    --faint:    #8F8697;
+    --rule:     #E4DCE8;
+    --accent:   #5E2868;
+    --accent-2: #8A4A97;
+    --good:     #2C6E58;
+    --warn:     #8A5A1B;
+    --shadow:   0 1px 2px rgba(30,26,34,.06), 0 8px 24px -16px rgba(30,26,34,.28);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #151318;
+      --surface:  #1D1A21;
+      --chip:     #272230;
+      --ink:      #ECE6EF;
+      --muted:    #A79DAF;
+      --faint:    #877E90;
+      --rule:     #322C3A;
+      --accent:   #C286D0;
+      --accent-2: #A768B6;
+      --good:     #6FC0A2;
+      --warn:     #D9A65C;
+      --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #151318;
+    --surface:  #1D1A21;
+    --chip:     #272230;
+    --ink:      #ECE6EF;
+    --muted:    #A79DAF;
+    --faint:    #877E90;
+    --rule:     #322C3A;
+    --accent:   #C286D0;
+    --accent-2: #A768B6;
+    --good:     #6FC0A2;
+    --warn:     #D9A65C;
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
+
+  /* ---- masthead ---- */
+  .mast { display: flex; flex-direction: column; gap: .5rem; padding-bottom: 1.75rem; border-bottom: 2px solid var(--accent); }
+  .kicker {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .72rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 700; font-size: clamp(2.1rem, 6vw, 3.1rem); line-height: 1.04;
+    margin: 0; letter-spacing: -.015em; text-wrap: balance;
+  }
+  .standfirst { color: var(--muted); font-size: 1.06rem; max-width: 46ch; margin: .35rem 0 0; }
+
+  /* ---- sections ---- */
+  section { margin-top: 3.25rem; }
+  h2 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600; font-size: 1.42rem; letter-spacing: -.005em;
+    margin: 0 0 .3rem; display: flex; align-items: baseline; gap: .6rem;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", monospace; font-size: .78rem; font-weight: 500;
+    color: var(--accent); letter-spacing: .08em;
+  }
+  .lede { color: var(--muted); margin: 0 0 1.4rem; max-width: 62ch; }
+
+  /* ---- keycaps ---- */
+  kbd {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .82em; font-weight: 500; line-height: 1;
+    padding: .3em .5em; border-radius: 5px;
+    border: 1px solid var(--rule); border-bottom-width: 2px;
+    background: var(--chip); color: var(--ink);
+    white-space: nowrap; display: inline-block;
+  }
+  .plus { color: var(--faint); font-size: .8em; margin: 0 .12em; }
+
+  /* ---- key rows ---- */
+  .keys { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+  .row { display: grid; grid-template-columns: 13.5rem 1fr; gap: 1rem; background: var(--surface); padding: .78rem 1.05rem; align-items: baseline; }
+  .row .what { color: var(--muted); font-size: .95rem; }
+  .row .what b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 34rem) { .row { grid-template-columns: 1fr; gap: .3rem; } }
+
+  /* ---- numbered steps ---- */
+  ol.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: .9rem; align-items: start; }
+  ol.steps li::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: "IBM Plex Mono", monospace; font-size: .78rem; font-weight: 600;
+    color: var(--accent); padding-top: .28rem;
+  }
+  ol.steps p { margin: 0; }
+  ol.steps .t { font-weight: 600; }
+  ol.steps .d { color: var(--muted); font-size: .96rem; }
+
+  /* ---- callout ---- */
+  .note {
+    background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    border-radius: 8px; padding: .95rem 1.15rem; margin-top: 1.25rem;
+    font-size: .95rem; color: var(--muted); box-shadow: var(--shadow);
+  }
+  .note b { color: var(--ink); }
+
+  /* ---- gotchas ---- */
+  ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
+  ul.plain li { display: grid; grid-template-columns: .6rem 1fr; gap: .8rem; color: var(--muted); font-size: .96rem; }
+  ul.plain li::before { content: ""; width: .35rem; height: .35rem; border-radius: 50%; background: var(--accent-2); margin-top: .62rem; }
+  ul.plain b { color: var(--ink); font-weight: 600; }
+
+  /* ---- files ---- */
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+  th, td { text-align: left; padding: .68rem 1.05rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-family: "IBM Plex Mono", monospace; font-size: .7rem; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.path { font-family: "IBM Plex Mono", monospace; font-size: .84rem; color: var(--accent); white-space: nowrap; }
+  td.desc { color: var(--muted); }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .88em;
+    background: var(--chip); padding: .1em .38em; border-radius: 4px;
+  }
+
+  footer { margin-top: 4rem; padding-top: 1.4rem; border-top: 1px solid var(--rule); color: var(--faint); font-size: .85rem; }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="kicker">macOS · Homebrew mpv</div>
+    <h1>mpv Field Guide</h1>
+    <p class="standfirst">Everything your setup does, and which key does it.</p>
+  </header>
+
+  <section>
+    <h2><span class="num">01</span> Start watching</h2>
+    <p class="lede">There is nothing to launch. mpv is the default player for every common video type.</p>
+    <ol class="steps">
+      <li>
+        <p class="t">Double-click any video in Finder.</p>
+        <p class="d">It opens in mpv. Every other video in that same folder is queued behind it automatically — a 1,200-file folder loads in about a sixth of a second. Images, subtitles and other clutter are filtered out.</p>
+      </li>
+      <li>
+        <p class="t">Or start from the folder itself.</p>
+        <p class="d">Right-click the folder → Open With → mpv, or drag it onto the mpv icon. Same result, played in order. A plain double-click on a folder always opens Finder — macOS reserves that.</p>
+      </li>
+      <li>
+        <p class="t">Open more videos whenever you like.</p>
+        <p class="d">A second video never opens a second window. It joins the queue and starts playing, and the first one stays available behind it.</p>
+      </li>
+      <li>
+        <p class="t">Close it whenever. Just close it.</p>
+        <p class="d">Your position is saved automatically. Open that file again — today or next month — and it picks up exactly where you stopped.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> Moving inside a video</h2>
+    <p class="lede">Five jump sizes, smallest to largest. Every one lands on the exact second — none of them drift to the nearest keyframe.</p>
+    <div class="keys">
+      <div class="row">
+        <div><kbd>Shift</kbd><span class="plus">+</span><kbd>←</kbd> <kbd>→</kbd></div>
+        <div class="what"><b>1 second</b> — for finding a precise moment</div>
+      </div>
+      <div class="row">
+        <div><kbd>a</kbd> <kbd>d</kbd></div>
+        <div class="what"><b>3 seconds</b> back and forward — for catching a line of dialogue</div>
+      </div>
+      <div class="row">
+        <div><kbd>←</kbd> <kbd>→</kbd></div>
+        <div class="what"><b>6 seconds</b> — the everyday nudge</div>
+      </div>
+      <div class="row">
+        <div><kbd>⌘</kbd><span class="plus">+</span><kbd>←</kbd> <kbd>→</kbd></div>
+        <div class="what"><b>10 seconds</b></div>
+      </div>
+      <div class="row">
+        <div><kbd>Option</kbd><span class="plus">+</span><kbd>←</kbd> <kbd>→</kbd></div>
+        <div class="what"><b>1 minute</b> — for skipping an intro. Either Option key works, as do <kbd>PgUp</kbd> and <kbd>PgDn</kbd></div>
+      </div>
+      <div class="row">
+        <div><kbd>Space</kbd></div>
+        <div class="what">Pause and resume</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> Moving between videos</h2>
+    <p class="lede">The queue is the folder you opened from, so this works without selecting anything.</p>
+    <div class="keys">
+      <div class="row">
+        <div><kbd>x</kbd></div>
+        <div class="what"><b>Next</b> video</div>
+      </div>
+      <div class="row">
+        <div><kbd>z</kbd></div>
+        <div class="what"><b>Previous</b> video. While shuffle is on it is a proper back button — it returns to the video you actually watched last, not the one sitting before this in folder order</div>
+      </div>
+      <div class="row">
+        <div><kbd>⌘</kbd><span class="plus">+</span><kbd>z</kbd></div>
+        <div class="what"><b>Shuffle on/off.</b> While on, both <kbd>x</kbd> and a video ending pick at random, and <kbd>z</kbd> retraces what you have watched. Nothing repeats until the whole folder has played</div>
+      </div>
+    </div>
+    <div class="note">
+      Re-clicking a video you already have open <b>does not restart it</b>. It returns to where you were, lifts the pause, and doesn't add a duplicate to the queue.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span> Where is this file?</h2>
+    <p class="lede">For when you want the file itself — to rename it, move it, or just see where it came from.</p>
+    <div class="keys">
+      <div class="row">
+        <div><kbd>l</kbd></div>
+        <div class="what"><b>Show in Finder.</b> Opens the folder the video lives in, in a new Finder window, with the file already selected — exactly as if you had clicked it there</div>
+      </div>
+    </div>
+    <div class="note">
+      From fullscreen on the laptop screen this switches you to Finder's Space, because that kind of fullscreen is a Space of its own. Press <kbd>p</kbd> first if you would rather stay put.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span> Subtitles, sound, screen</h2>
+    <div class="keys">
+      <div class="row">
+        <div><kbd>c</kbd></div>
+        <div class="what"><b>Subtitles.</b> Off until you ask. Press to turn on, again for the next language, again to turn off</div>
+      </div>
+      <div class="row">
+        <div><kbd>v</kbd></div>
+        <div class="what"><b>Cancel subtitles.</b> Switches them off wherever you are in the cycle — the next <kbd>c</kbd> starts again from the first language, as if they'd never been on</div>
+      </div>
+      <div class="row">
+        <div><kbd>↑</kbd> <kbd>↓</kbd> &nbsp;or&nbsp; <kbd>w</kbd> <kbd>s</kbd></div>
+        <div class="what"><b>Volume</b>, up and down. Two pairs that do exactly the same thing — the arrows, or <kbd>w</kbd> and <kbd>s</kbd> for one hand off the arrow keys. Either shows a vertical bar on the right, with a tick marking 100%</div>
+      </div>
+      <div class="row">
+        <div><kbd>f</kbd></div>
+        <div class="what"><b>Fullscreen.</b> Opens in its own Space on the laptop screen, and simply covers the desktop on an external display</div>
+      </div>
+      <div class="row">
+        <div><kbd>p</kbd></div>
+        <div class="what"><b>Switch how fullscreen works.</b> This is chosen for you — its own Space on the laptop screen, and plain desktop-covering on a TV or external monitor. Press <kbd>p</kbd> to overrule it until you change screens again</div>
+      </div>
+      <div class="row">
+        <div><kbd>g</kbd></div>
+        <div class="what"><b>Zoom to fill.</b> A wide film normally sits between two black bands. This crops them away so the picture fills the screen — at the cost of losing a strip off each side. Press again to go back</div>
+      </div>
+      <div class="row">
+        <div><kbd>i</kbd></div>
+        <div class="what">Playback statistics, if you ever suspect stutter</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">06</span> Saved positions</h2>
+    <p class="lede">Every video remembers where you stopped — when you close mpv, and also when you jump to another video with <kbd>x</kbd>, <kbd>z</kbd> or shuffle. Three things clear that memory.</p>
+    <ul class="plain">
+      <li><span><b>Finishing a video</b> clears its own position, so it starts fresh next time.</span></li>
+      <li><span><b>Thirty days</b> — anything untouched that long is dropped automatically at startup.</span></li>
+      <li><span><b><kbd>0</kbd> then <kbd>0</kbd> again</b> wipes every saved position at once. The first press only arms it and shows a count; the second commits. The arming expires after 3 seconds, so two stray presses minutes apart can't do it.</span></li>
+    </ul>
+    <div class="note">
+      Positions are keyed to the file's <b>path</b>, so renaming or moving a video loses its place.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">07</span> Worth knowing</h2>
+    <ul class="plain">
+      <li><span><b>mpv’s own volume keys are still there.</b> <kbd>/</kbd> and <kbd>*</kbd>, the numpad <kbd>÷</kbd> and <kbd>×</kbd>, and the mouse wheel all still change volume — but in steps of 2, and they show mpv’s flat horizontal bar instead of the vertical one. <kbd>9</kbd> was the last one of these on the main keyboard and is now switched off.</span></li>
+      <li><span><b>Shuffle history resets when you quit.</b> A fresh session can replay something you saw in the last one.</span></li>
+      <li><span><b>Back and forward behave like a browser while shuffling.</b> <kbd>z</kbd> retraces the videos you actually watched, <kbd>x</kbd> walks that trail forward again, and only once you are back at the newest one does <kbd>x</kbd> pick a fresh random video.</span></li>
+      <li><span><b>Subtitles never return on their own.</b> Even if you had them on when you quit, reopening starts clean.</span></li>
+      <li><span><b>The window never opens bigger than 90% of the screen.</b> Left to itself mpv sizes the window to the video, and a 1080p file on a 1080p screen gives a window exactly as large as the display — so <kbd>f</kbd> appears to do nothing. Capping it keeps fullscreen visibly different.</span></li>
+      <li><span><b>On a TV, fullscreen covers the desktop</b> rather than taking its own Space. The trade is a faint hairline at the screen edge, which nobody sees from a sofa. <kbd>p</kbd> switches it either way.</span></li>
+      <li><span><b>Moving the mouse shows a slim progress bar</b>, not the full control bar. The controls — buttons, filename, timers — only appear when you push the pointer right down to the bottom edge of the screen, and they go away again after two seconds of a stationary mouse. Left to itself mpv keeps them up indefinitely while the pointer rests on them.</span></li>
+      <li><span><b>The elapsed time sits under the bar</b>, at the bottom of the screen. Short messages like “Subtitles off” or “Zoom to fill” still appear in the top-left corner, where mpv puts them.</span></li>
+      <li><span><b>Zoom is remembered per film.</b> Unlike subtitles, a film you zoomed with <kbd>g</kbd> is still zoomed when you come back to it.</span></li>
+      <li><span><kbd>Shift</kbd><span class="plus">+</span><kbd>Q</kbd> <b>saves and quits</b> — the same as closing normally, kept because it's an mpv habit.</span></li>
+      <li><span><kbd>Return</kbd>, <kbd>&gt;</kbd> <b>and</b> <kbd>&lt;</kbd> <b>are dead too.</b> All three were spare copies of <kbd>x</kbd> and <kbd>z</kbd>, and a stray press skipped the video. The mouse’s back and forward buttons still do it.</span></li>
+      <li><span><kbd>l</kbd> <b>used to set loop points.</b> mpv's default <kbd>l</kbd> marked the start and end of a repeating section; it is now Show in Finder.</span></li>
+      <li><span><kbd>w</kbd> <b>and</b> <kbd>s</kbd> <b>used to do something else.</b> By default they nudged the crop and took a screenshot; both were easy to hit by accident, and both are gone. Cropping has a proper on/off switch on <kbd>g</kbd> instead.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">08</span> Running under the hood</h2>
+    <p class="lede">Things you never press, doing work while you watch.</p>
+    <ul class="plain">
+      <li><span><b>Hardware decoding.</b> Playback runs on the Mac's dedicated video decoder rather than the CPU — measured 19.6% → 4.9% CPU on 1080p. Quieter, cooler, longer battery, and the picture is identical.</span></li>
+      <li><span><b>High-quality upscaling.</b> A sharper scaler for 720p and 1080p on a Retina screen. This one costs GPU, and it's the deliberate trade for a better picture.</span></li>
+      <li><span><b>One window, always.</b> Selecting a whole folder and opening it can't spawn a second player — the launcher takes a lock so only one instance is ever created.</span></li>
+      <li><span><b>Thumbnails for MKV and WebM</b>, via QuickLook Video. macOS can't preview those formats on its own.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">09</span> Where it all lives</h2>
+    <p class="lede">Every setting is commented in place with the reason it's there.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Path</th><th>What's in it</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
+          <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page</td></tr>
+          <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, control-bar idle hide, show in Finder, position expiry and reset</td></tr>
+          <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
+          <tr><td class="path">/Applications/mpv.app</td><td class="desc">The wrapper Finder opens, plus the purple document icons</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      Editing anything <b>inside</b> <code>mpv.app</code> breaks its signature, and re-signing makes macOS ask for Desktop access again. That's why the launcher and scripts sit outside it — they can be changed freely.
+    </div>
+  </section>
+
+  <footer>
+    Built on mpv 0.41.0 (Homebrew) · macOS · 28 August 2026
+  </footer>
+
+</div>
+

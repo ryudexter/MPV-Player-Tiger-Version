@@ -1,0 +1,9 @@
+# Playback positions — 291 files of personal viewing history, and they
+# contain the full path of every file ever opened. Never commit these.
+watch_later/
+
+# Streaming cache (mpv.conf points demuxer-cache-dir at ~/.cache/mpv, but
+# guard against a future config change putting it here)
+cache/
+
+.DS_Store

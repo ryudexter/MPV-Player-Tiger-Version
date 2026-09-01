@@ -83,6 +83,31 @@ local function reap()
     reaping = false
 end
 
+-- A trashed entry that happens to sit LAST in the playlist strands you: the
+-- video plays on, but "next" has nowhere to go, so you are stuck on a file
+-- that is already in the Trash. (A 2-video folder hits this constantly - open
+-- the second one and it is already the last entry.)
+--
+-- The entry is on its way out anyway, so its position carries no meaning:
+-- slide it one slot earlier and "next" lands on the nearest surviving video
+-- instead of nothing. Reordering a playlist does not disturb playback, and
+-- moving it only one slot - rather than to the front - keeps the destination
+-- adjacent, which at the end of a folder is the only sensible direction left.
+--
+-- Returns true when nothing could be done because the dead entry is all that
+-- is left, so the caller can say so instead of leaving you guessing.
+local function shuffle_out_of_last_place(id)
+    local i     = index_of_id(id)
+    local count = mp.get_property_number("playlist-count") or 0
+    if not i or count < 2 then return count < 2 end
+    if i == count - 1 then
+        -- playlist-move inserts the entry BEFORE the second index
+        mp.commandv("playlist-move", i, i - 1)
+        mp.msg.verbose("moved the trashed entry off the end of the playlist")
+    end
+    return false
+end
+
 local function do_trash()
     local path = mp.get_property("path")
     if not path then
@@ -125,12 +150,15 @@ local function do_trash()
         mp.msg.info("trashed " .. path)
         mp.commandv("delete-watch-later-config", path)
 
+        local stranded = false
         if id and index_of_id(id) then
             -- still in the playlist: leave it, and the file playing, alone
             pending[id] = path
+            stranded = shuffle_out_of_last_place(id)
             reap()                       -- in case we have since moved off it
         end
-        mp.osd_message("Moved to Trash: " .. name, 2)
+        mp.osd_message("Moved to Trash: " .. name ..
+            (stranded and "  (nothing else in this playlist)" or ""), 2)
     end)
 end
 

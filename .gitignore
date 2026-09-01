@@ -7,3 +7,6 @@ watch_later/
 cache/
 
 .DS_Store
+# Single remembered sound level (scripts/global-sound.lua). Machine state, not
+# config - and it changes every time the volume keys are touched.
+sound-state.json

@@ -63,6 +63,7 @@ scripts/
   osc-idle-hide.lua     hides the control bar after 2s of a stationary pointer
   reveal-in-finder.lua  l → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
+  trash-file.lua        Cmd+Delete → /usr/bin/trash, then next file
 app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source

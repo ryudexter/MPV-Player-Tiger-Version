@@ -10,14 +10,27 @@
 -- OSC to go away; the next real movement hands control straight back to it.
 -- Nothing here changes what the OSC does while the mouse is actually moving.
 
-local IDLE   = 2      -- seconds of a stationary mouse before the OSC goes
--- ...but longer while the pointer is down on the seek bar, because since
--- seek-thumbnail.lua that is where you hold still ON PURPOSE, to look at the
--- preview frame. At a flat 2s the thumbnail vanished exactly when you stopped
--- to read it. Still bounded, so a mouse parked there and abandoned - the
--- original complaint this script exists for - clears on its own.
-local IDLE_SEEK   = 6
-local SEEK_ZONE   = 0.88   -- same strip seek-thumbnail.lua watches
+local options = require 'mp.options'
+
+-- idle_seek used to be 6, to keep seek-thumbnail.lua's preview frame on screen
+-- while you hold still ON PURPOSE to read it. The problem is that with
+-- osc-deadzonesize=1 the ONLY way to summon the OSC is to put the pointer into
+-- the bottom strip - the very strip seek_zone covers - so the 6s branch was
+-- taken every single time and the 2s below was dead code. Measured by parking
+-- the pointer at y=690 in a 720-high window and screenshotting: the OSC was
+-- still up at 1.0s, 2.5s and 4.0s, and only gone by 6.5s.
+--
+-- So both are 2s now, which is what "hide it when I stop moving" actually
+-- means. The cost is that a thumbnail you stopped to read also goes after 2s;
+-- raise idle_seek in script-opts/osc_idle_hide.conf to buy that time back
+-- without touching this file.
+local opts = {
+    idle      = 2,     -- seconds of a stationary mouse before the OSC goes
+    idle_seek = 2,     -- ...and the same while down on the seek bar
+    seek_zone = 0.88,  -- same strip seek-thumbnail.lua watches
+}
+options.read_options(opts, "osc_idle_hide")
+
 local JITTER = 4      -- px; below this a "move" is just sensor noise (same
                       -- floor mouse-progress.lua uses)
 
@@ -58,7 +71,7 @@ local function hide()
     end
 end
 
-timer = mp.add_timeout(IDLE, hide)
+timer = mp.add_timeout(opts.idle, hide)
 timer:kill()
 
 mp.observe_property("mouse-pos", "native", function(_, pos)
@@ -81,6 +94,7 @@ mp.observe_property("mouse-pos", "native", function(_, pos)
     show()
     timer:kill()                    -- restart the countdown from this movement
     local _, h = mp.get_osd_size()
-    timer.timeout = (h and h > 0 and pos.y >= h * SEEK_ZONE) and IDLE_SEEK or IDLE
+    timer.timeout = (h and h > 0 and pos.y >= h * opts.seek_zone)
+                    and opts.idle_seek or opts.idle
     timer:resume()
 end)

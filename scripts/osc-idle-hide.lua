@@ -1,4 +1,5 @@
--- Hide the OSC when the mouse sits still, even while it is over the OSC itself.
+-- Hide the OSC *and the mouse cursor* when the mouse sits still, even while it
+-- is over the OSC itself.
 --
 -- mpv's own osc.lua refuses to auto-hide whenever the pointer is inside the OSC
 -- area (see its render loop: the hidetimeout is ignored while mouse_over_osc).
@@ -9,6 +10,19 @@
 -- This watches mouse-pos and, after IDLE seconds without real movement, tells the
 -- OSC to go away; the next real movement hands control straight back to it.
 -- Nothing here changes what the OSC does while the mouse is actually moving.
+--
+-- The cursor is handled here too, on its own shorter timer, because mpv's
+-- --cursor-autohide could not do the job alone. That option restarts its
+-- countdown on ANY movement, and a finger resting on a trackpad never really
+-- stops moving, so a pointer left over the picture stayed lit through a whole
+-- film even at the 1000ms default. The JITTER floor below is the fix: sub-4px
+-- twitches are not movement, so the countdown actually finishes.
+--
+-- mpv has no explicit hide-the-cursor command, but cursor-autohide=always is
+-- exactly that, and setting it back to its configured value brings the pointer
+-- back. The cursor keeps a separate timer from the OSC so the two can differ:
+-- the pointer is pure clutter and goes at 1s, while the controls are worth a
+-- moment longer.
 
 local options = require 'mp.options'
 
@@ -25,9 +39,10 @@ local options = require 'mp.options'
 -- raise idle_seek in script-opts/osc_idle_hide.conf to buy that time back
 -- without touching this file.
 local opts = {
-    idle      = 2,     -- seconds of a stationary mouse before the OSC goes
-    idle_seek = 2,     -- ...and the same while down on the seek bar
-    seek_zone = 0.88,  -- same strip seek-thumbnail.lua watches
+    idle        = 2,     -- seconds of a stationary mouse before the OSC goes
+    idle_seek   = 2,     -- ...and the same while down on the seek bar
+    seek_zone   = 0.88,  -- same strip seek-thumbnail.lua watches
+    cursor_idle = 1,     -- ...and before the mouse cursor itself goes
 }
 options.read_options(opts, "osc_idle_hide")
 
@@ -37,6 +52,9 @@ local JITTER = 4      -- px; below this a "move" is just sensor noise (same
 local last_x, last_y = nil, nil
 local hidden = false
 local timer  = nil
+
+-- whatever mpv.conf asked for, so movement restores that rather than a guess
+local CURSOR_NORMAL = mp.get_property("cursor-autohide") or "1000"
 
 local function show()
     if not hidden then return end
@@ -71,15 +89,36 @@ local function hide()
     end
 end
 
+-- ---- the cursor, on its own clock ------------------------------------------
+
+local cursor_timer  = nil
+local cursor_hidden = false
+
+local function cursor_show()
+    if cursor_timer then cursor_timer:kill(); cursor_timer = nil end
+    if not cursor_hidden then return end
+    mp.set_property("cursor-autohide", CURSOR_NORMAL)
+    cursor_hidden = false
+end
+
+local function cursor_hide()
+    cursor_timer = nil
+    if cursor_hidden then return end
+    mp.set_property("cursor-autohide", "always")
+    cursor_hidden = true
+end
+
 timer = mp.add_timeout(opts.idle, hide)
 timer:kill()
 
 mp.observe_property("mouse-pos", "native", function(_, pos)
     if not pos then return end
 
-    -- pointer left the window: let the OSC hide on its own terms
+    -- pointer left the window: let the OSC hide on its own terms, and never
+    -- leave the cursor forced off for whatever it moved onto next
     if pos.hover == false then
         timer:kill()
+        cursor_show()
         show()
         last_x, last_y = nil, nil
         return
@@ -90,6 +129,11 @@ mp.observe_property("mouse-pos", "native", function(_, pos)
         return                      -- not a real move, keep the countdown running
     end
     last_x, last_y = pos.x, pos.y
+
+    -- cursor first: show() replays a mouse event, and that event can only
+    -- re-light the pointer once cursor-autohide is off 'always' again
+    cursor_show()
+    cursor_timer = mp.add_timeout(opts.cursor_idle, cursor_hide)
 
     show()
     timer:kill()                    -- restart the countdown from this movement

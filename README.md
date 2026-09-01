@@ -60,7 +60,7 @@ scripts/
   fullscreen-mode.lua   native fullscreen on the laptop, legacy on a TV; p overrides
   vertical-volume.lua   vertical volume bar
   mouse-progress.lua    seek bar on mouse move, time readout at the bottom
-  osc-idle-hide.lua     hides the control bar after 2s of a stationary pointer
+  osc-idle-hide.lua     hides the control bar and cursor after 2s of stillness
   reveal-in-finder.lua  l → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
   trash-file.lua        Cmd+Delete → /usr/bin/trash, playback untouched

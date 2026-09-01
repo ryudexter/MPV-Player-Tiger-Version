@@ -62,7 +62,7 @@ scripts/
   mouse-progress.lua    seek bar on mouse move, time readout at the bottom
   osc-idle-hide.lua     hides the control bar after 2s of a stationary pointer
   reveal-in-finder.lua  l → open -R
-  watch-later-reset.lua 0 0 → wipe saved positions
+  watch-later-reset.lua 0 0 → reset this playlist's saved positions
 app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source

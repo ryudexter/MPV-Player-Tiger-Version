@@ -1,5 +1,16 @@
 -- Move the playing file to the Trash, bound to Cmd+Delete.
 --
+-- Playback is deliberately left completely alone: the video keeps playing from
+-- the same spot, at the same volume, and mpv never quits as a result of this.
+-- Trashing an open file on macOS only unlinks it from its folder, so mpv's
+-- already-open handle keeps reading it happily to the end.
+--
+-- The playlist entry still points at a path that no longer exists, so it is
+-- reaped later - once playback has moved off it of its own accord. Removing it
+-- straight away is what would disturb things: dropping the CURRENT entry makes
+-- mpv start the next file immediately, and on the last entry it ends playback
+-- (with keep-open=no that means mpv quits).
+--
 -- /usr/bin/trash ships with macOS (14+) and goes through the real Trash API,
 -- so Finder records where the file came from and its right-click "Put Back"
 -- restores it. That is the only undo here on purpose - moving files back out
@@ -21,6 +32,11 @@ local opts = {
 }
 options.read_options(opts, "trash_file")
 
+-- entry id -> path, for files already trashed whose playlist entry is still
+-- standing because we are still watching it
+local pending = {}
+local reaping = false
+
 -- mpv keeps `path` exactly as the playlist entry gave it, which can be
 -- relative; the Trash API needs an absolute one.
 local function abs(path)
@@ -29,16 +45,42 @@ local function abs(path)
     return wd and (wd .. "/" .. path) or path
 end
 
--- Entry ids are stable for the life of the playlist, indices are not: by the
--- time the trash subprocess reports back the user may have stepped to another
--- file, and playlist-remove only takes an index. So remember the id and look
--- its index up again at the end.
+-- Entry ids are stable for the life of the playlist, indices are not - they
+-- shift as entries come and go, and playlist-remove only takes an index. So
+-- remember the id and look its index up again whenever it is needed.
 local function index_of_id(id)
     local pl = mp.get_property_native("playlist") or {}
     for i, entry in ipairs(pl) do
         if entry.id == id then return i - 1 end
     end
     return nil
+end
+
+local function current_id()
+    local pos = mp.get_property_number("playlist-pos")
+    local pl  = mp.get_property_native("playlist") or {}
+    return pos and pl[pos + 1] and pl[pos + 1].id
+end
+
+-- Drop the playlist entries of trashed files, but only ones we are no longer
+-- sitting on. Removing an entry that is not the current one does not touch
+-- playback: if it sat earlier in the list mpv just renumbers, and playlist-pos
+-- follows the file that is playing.
+local function reap()
+    if reaping then return end       -- our own playlist-remove re-triggers this
+    reaping = true
+    local cur = current_id()
+    for id, path in pairs(pending) do
+        if id ~= cur then
+            local i = index_of_id(id)
+            if i then mp.commandv("playlist-remove", i) end
+            -- again here because stepping away with x writes a position first
+            mp.commandv("delete-watch-later-config", path)
+            pending[id] = nil
+            mp.msg.verbose("reaped playlist entry for " .. path)
+        end
+    end
+    reaping = false
 end
 
 local function do_trash()
@@ -56,9 +98,14 @@ local function do_trash()
 
     path = abs(path)
     local name = mp.get_property("filename") or path
-    local pos  = mp.get_property_number("playlist-pos")
-    local pl   = mp.get_property_native("playlist") or {}
-    local id   = pos and pl[pos + 1] and pl[pos + 1].id
+    local id   = current_id()
+
+    -- pressing it twice on the same file would otherwise report a failure,
+    -- since the second trash cannot find the file any more
+    if id and pending[id] then
+        mp.osd_message("Already in the Trash: " .. name, 2)
+        return
+    end
 
     mp.command_native_async({
         name           = "subprocess",
@@ -76,17 +123,13 @@ local function do_trash()
         end
 
         mp.msg.info("trashed " .. path)
-
-        -- Dropping the current entry is what moves playback on: mpv starts the
-        -- next file by itself. On the last entry there is nothing to start, so
-        -- mpv ends playback - with keep-open=no in mpv.conf that means it quits.
-        local i = id and index_of_id(id)
-        if i then
-            mp.commandv("playlist-remove", i)
-        end
-
-        -- after the remove, so a position written during the handover goes too
         mp.commandv("delete-watch-later-config", path)
+
+        if id and index_of_id(id) then
+            -- still in the playlist: leave it, and the file playing, alone
+            pending[id] = path
+            reap()                       -- in case we have since moved off it
+        end
         mp.osd_message("Moved to Trash: " .. name, 2)
     end)
 end
@@ -112,3 +155,8 @@ local function trash()
 end
 
 mp.add_key_binding(nil, "trash-file", trash)
+
+-- both, because leaving a file and arriving at the next one are not the same
+-- moment: end-file fires even when nothing follows it in the playlist
+mp.observe_property("playlist-pos", "number", function() reap() end)
+mp.register_event("end-file", function() reap() end)

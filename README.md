@@ -130,7 +130,7 @@ Three keys, in the order you reach for them:
 
 | | |
 |---|---|
-| `c` | subtitles on, at the best track this file has. Again to switch them off. |
+| `c` | subtitles on, at the best track this file has — English, or Turkish if it has no English. Again to switch them off. |
 | `b` | none good enough? download one. |
 | `Alt`+`c` | pick a specific track from a searchable list. |
 
@@ -138,9 +138,12 @@ Three keys, in the order you reach for them:
 `sub-auto=all`, because releases park their subtitles in a subfolder under names
 like `English.srt` that match nothing about the video — without it they are
 invisible. The cost is volume: Project Hail Mary went from 1 track to 36.
-`subtitle-pick.lua` scores every track — English in the language tag or the
+`subtitle-pick.lua` scores every track — the language in the tag or the
 filename, embedded, filename matching this video's stem, minus points for SDH
-and forced tracks — and selects the winner in one press.
+and forced tracks — and selects the winner in one press. English and Turkish
+sit in bands 500 points apart, wider than every other signal put together, so
+an English track always wins when there is one and Turkish is the fallback;
+nothing about being embedded or default can lift one language over the other.
 
 > The stem bonus is what stops it picking the wrong episode. A Solo Leveling
 > season folder holds 12 videos and 12 `.srt` files, and *all twelve* subtitle
@@ -151,9 +154,11 @@ and forced tracks — and selects the winner in one press.
 built-in equivalent of. It shells out to
 [subliminal](https://github.com/Diaoul/subliminal), which hashes the video and
 searches several sites at once, so it finds a subtitle timed for *this* rip
-rather than guessing from the title. The result lands next to the video as
-`<name>.en.srt` and is switched on when it arrives. `Shift`+`b` downloads again
-over a subtitle file that is already there.
+rather than guessing from the title. English and Turkish are requested in the
+same search, so a film with both ends up with a `.en.srt` and a `.tr.srt` and
+shows the English one, and a film with only Turkish subtitles still gets
+subtitles. The result lands next to the video and is switched on when it
+arrives. `Shift`+`b` downloads again over a subtitle file that is already there.
 
 Anonymous sources only — nothing here has a login:
 
@@ -164,8 +169,16 @@ Anonymous sources only — nothing here has a login:
 | `tvsubtitles` | episodes only. |
 | `podnapisi` | listed, but the site currently has no DNS record at all. Kept so it starts working again by itself if it comes back. |
 
-subliminal can also query opensubtitles.com — the source VLsub uses — but that
-needs an account and an API key, so it is deliberately left out.
+bsplayer, gestdown and podnapisi all carry Turkish as well as English, so both
+languages are worth asking for — but with only these three, coverage is thin,
+and **every movie depends on bsplayer alone**. Its server pool is unreliable:
+it served four downloads during testing and then went dark, all nine of its
+`sN.api.bsplayer-subtitles.com` hosts timing out, which `b` reports as
+"Subtitle site unavailable (bsplayer) — try again".
+
+subliminal can also query opensubtitles.com — the source VLsub uses, and by far
+the largest Turkish collection — but that needs an account and an API key, so it
+is deliberately left out. That is the one change that would make this reliable.
 
 Measured 2026-09-02, driving the real config over IPC: a movie takes ~4s
 (Margin Call, 1353 cues), an episode ~57s because two more sites are involved

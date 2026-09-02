@@ -14,8 +14,9 @@
 -- so slang=eng would never have found it. Hence the scoring below, which reads
 -- the filename as well as the tag.
 --
--- c is now a toggle: on at the best English track, off again. Alt+c opens
--- mpv's own searchable track list for anything else.
+-- c is now a toggle: on at the best English track - or Turkish, if this file
+-- has no English - and off again. Alt+c opens mpv's own searchable track list
+-- for anything else.
 
 local function label(t)
     if t.title and t.title ~= "" then return t.title end
@@ -31,23 +32,56 @@ local function video_stem()
     return (path:gsub(".*/", ""):gsub("%.[^.]*$", ""))
 end
 
--- Higher is better. Both signals count, so a file tagged eng AND named english
--- outranks one with only a tag.
+-- Wanted languages, best first. Turkish is here because a Turkish subtitle is
+-- perfectly readable when no English one exists; scripts/subtitle-fetch.lua
+-- downloads both for the same reason. mpv reports language tags as either a
+-- bare code or a locale ("en", "en-US", "tr-TR"), so these match on the front.
+-- The Turkish words are matched as plain bytes and Lua's :lower() only folds
+-- ASCII, so "TURKCE" folds to "turkce" but "TÜRKÇE" keeps its uppercase Ü -
+-- hence both byte spellings of the ü. "turk" is the stem of Turkish, Turkce
+-- and Turkiye alike, so one entry covers the lot.
+local WANTED = {
+    { code = "en", score = 1000, words = { "english" } },
+    { code = "tr", score =  500, words = { "turk", "t\195\188rk", "t\195\156rk" } },
+}
+
+-- Higher is better, and the language band dominates - see the loop below.
 --
 -- The stem bonus is what stops this picking the wrong episode. Solo Leveling's
 -- season folder holds 12 videos and 12 .srt files together, and every one of
 -- those names contains "English" - from "[English Dub]" - so on the language
 -- signal alone all twelve tie and episode 1's subtitles win no matter which
 -- episode is playing. Verified 2026-09-01: 24 of the filenames match /english/i.
--- The bonus is smaller than a language signal on purpose, so it settles ties
--- without letting an untagged neighbour outrank a file actually named English.
+-- The bonus is smaller than a language band on purpose, so it settles ties
+-- inside one language without ever reaching across to another.
 local function score(t, stem)
     local s = 0
     local lang  = (t.lang or ""):lower()
     local fn    = t["external-filename"]
     local text  = ((t.title or "") .. " " .. (fn or "")):lower()
-    if lang:match("^en")     then s = s + 100 end
-    if text:match("english") then s = s + 100 end
+    -- Language decides first, everything else only sorts within a language.
+    -- English is preferred and Turkish is the fallback, and the two bands are
+    -- 500 apart - wider than every other signal here added together - so no
+    -- amount of being embedded, default or well-named can lift a Turkish track
+    -- above an English one, or vice versa.
+    --
+    -- The tag and the name are treated as one signal with a small bonus for
+    -- agreeing, rather than 100 each. It has to work that way round because
+    -- the commonest English subtitle in this library, a bare "English.srt" in
+    -- a Subs/ folder, has NO language tag at all - name-only English must
+    -- still outrank a Turkish track that has both.
+    for _, w in ipairs(WANTED) do
+        local by_tag  = lang:match("^" .. w.code)
+        local by_name = false
+        for _, word in ipairs(w.words) do
+            if text:find(word, 1, true) then by_name = true end
+        end
+        if by_tag or by_name then
+            s = s + w.score
+            if by_tag and by_name then s = s + 25 end
+            break                     -- first match wins: WANTED is ordered
+        end
+    end
     if not fn then
         s = s + 50            -- embedded: belongs to this file by definition
     else
@@ -56,7 +90,7 @@ local function score(t, stem)
         elseif stem ~= "" and base:find(stem, 1, true) then s = s + 40 end
     end
     -- SDH/hearing-impaired tracks caption sound effects and speaker names, so
-    -- they are a poor default even though they are perfectly good English
+    -- they are a poor default even though the language is right
     if t["hearing-impaired"] or text:match("sdh") or text:match("%f[%a]hi%f[%A]") then
         s = s - 60
     end

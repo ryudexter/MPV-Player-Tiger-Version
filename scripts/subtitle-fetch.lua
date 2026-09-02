@@ -19,11 +19,14 @@
 -- subliminal skips a provider that cannot serve the kind of video being played
 -- ("not a valid video"), so passing all four is how one key covers both.
 --
--- Downloads land NEXT TO the video as "<name>.en.srt". That name is chosen by
--- subliminal and it is exactly what the rest of this config wants: mpv reads
--- the .en as a language tag, and scripts/subtitle-pick.lua then scores it 140
--- (100 for English + 40 for matching the video's stem), which beats any
--- "English.srt" already sitting in a Subs/ folder for another episode.
+-- English is what gets switched on; Turkish is asked for in the same search
+-- and used when the film has no English subtitle. See LANGS below.
+--
+-- Downloads land NEXT TO the video as "<name>.en.srt" / "<name>.tr.srt". Those
+-- names are subliminal's own and they are exactly what the rest of this config
+-- wants: mpv reads the ".en" as a language tag, so subtitle-pick.lua can score
+-- them, and the stem means c can tell them from an "English.srt" sitting in a
+-- Subs/ folder for a different episode.
 --
 -- b downloads and switches subtitles on in one press. Shift+b forces a
 -- re-download over a subtitle file that is already there.
@@ -38,7 +41,12 @@ local HOME = os.getenv("HOME") or ""
 -- The pipx shim's own shebang is absolute, so nothing else needs PATH either.
 local SUBLIMINAL = HOME .. "/.local/bin/subliminal"
 
-local LANGS     = { "en" }
+-- Wanted languages, best first, matching WANTED in subtitle-pick.lua. Both are
+-- requested in one search: subliminal downloads the best it can find for EACH
+-- language it is given, so a film with both ends up with an .en.srt and a
+-- .tr.srt and the English one is switched on, while a film with only Turkish
+-- subtitles still gets subtitles. The cost is a slower search.
+local LANGS     = { "en", "tr" }
 local PROVIDERS = { "bsplayer", "gestdown", "podnapisi", "tvsubtitles" }
 
 -- Used only when the video's own folder is read-only (a mounted disk image, a
@@ -117,16 +125,20 @@ local function apply_beside_video(ctx)
     -- extension is whatever the site served, so match on the prefix. Compared
     -- by basename because a rescanned track's external-filename may be either
     -- absolute or relative.
-    local want = ctx.stem .. "." .. LANGS[1] .. "."
-    for _, t in ipairs(mp.get_property_native("track-list") or {}) do
-        local fn = t.type == "sub" and t["external-filename"]
-        if fn then
-            local base = fn:gsub(".*/", "")
-            if base:sub(1, #want) == want then
-                mp.set_property_number("sid", t.id)
-                mp.set_property_bool("sub-visibility", true)
-                mp.osd_message("Subtitles: " .. base)
-                return
+    -- LANGS order is preference order, so English is looked for across every
+    -- track before Turkish is considered at all.
+    for _, lang in ipairs(LANGS) do
+        local want = ctx.stem .. "." .. lang .. "."
+        for _, t in ipairs(mp.get_property_native("track-list") or {}) do
+            local fn = t.type == "sub" and t["external-filename"]
+            if fn then
+                local base = fn:gsub(".*/", "")
+                if base:sub(1, #want) == want then
+                    mp.set_property_number("sid", t.id)
+                    mp.set_property_bool("sub-visibility", true)
+                    mp.osd_message("Subtitles: " .. base)
+                    return
+                end
             end
         end
     end
@@ -136,19 +148,41 @@ local function apply_beside_video(ctx)
     mp.commandv("script-message", "subs-pick-best")
 end
 
+-- "<stem>.<lang>.<ext>" -> the language, when it is one that was asked for.
+local function lang_of(name)
+    for _, lang in ipairs(LANGS) do
+        if name:match("%." .. lang .. "%.[^.]+$") then return lang end
+    end
+    return LANGS[1]
+end
+
 local function apply_from_fallback(before)
-    local added
+    -- Sorted so the preferred language is selected rather than whichever name
+    -- readdir happened to return first.
+    local new_names = {}
     for name in pairs(srt_set(FALLBACK_DIR)) do
-        if not before[name] then
-            -- The language is passed explicitly: a sub-added file gets no
-            -- language at all unless it is given one (measured - the same
-            -- subtitle auto-loaded from beside the video reports lang=en,
-            -- sub-added it reports none), and subtitle-pick.lua scores the
-            -- language tag. Empty title so it still labels by filename.
-            mp.commandv("sub-add", FALLBACK_DIR .. "/" .. name,
-                        added and "auto" or "select", "", LANGS[1])
-            added = added or name
+        if not before[name] then new_names[#new_names + 1] = name end
+    end
+    table.sort(new_names, function(a, b)
+        local ra, rb = #LANGS + 1, #LANGS + 1
+        for i, lang in ipairs(LANGS) do
+            if lang_of(a) == lang and ra > i then ra = i end
+            if lang_of(b) == lang and rb > i then rb = i end
         end
+        if ra ~= rb then return ra < rb end
+        return a < b
+    end)
+
+    -- The language is passed explicitly: a sub-added file gets no language at
+    -- all unless it is given one (measured - the same subtitle auto-loaded
+    -- from beside the video reports lang=en, sub-added it reports none), and
+    -- subtitle-pick.lua scores the language tag. Empty title so it still
+    -- labels by filename.
+    local added
+    for _, name in ipairs(new_names) do
+        mp.commandv("sub-add", FALLBACK_DIR .. "/" .. name,
+                    added and "auto" or "select", "", lang_of(name))
+        added = added or name
     end
     if added then
         mp.set_property_bool("sub-visibility", true)

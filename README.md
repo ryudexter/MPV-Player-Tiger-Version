@@ -1,7 +1,7 @@
 # mpv — macOS setup
 
 A hand-tuned [mpv](https://mpv.io) configuration for macOS: a single-instance
-launcher, thirteen Lua scripts, and a `.app` wrapper that makes mpv behave like
+launcher, fourteen Lua scripts, and a `.app` wrapper that makes mpv behave like
 a native double-click-to-play media player.
 
 Every value in `mpv.conf` carries a comment explaining *why* it is set, usually
@@ -41,6 +41,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `Alt`+`c` | choose a subtitle track from a searchable list |
 | `Shift`+`c` / `Shift`+`x` | subtitle timing ±100ms |
 | `b` / `Shift`+`b` | download subtitles / download again over one already there |
+| `Alt`+`b` | re-time the subtitle against the film's audio |
 | `g` | zoom to fill ↔ original aspect |
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `l` | reveal the playing file in Finder |
@@ -71,6 +72,7 @@ scripts/
   trash-file.lua        Cmd+Delete → /usr/bin/trash, playback untouched
   subtitle-pick.lua     c → score every sub track and pick the best English one
   subtitle-fetch.lua    b → download a subtitle with the subliminal CLI
+  subtitle-sync.lua     Alt+b → re-time it with the ffsubsync CLI
   global-sound.lua      one volume level for everything, not one per file
 app/
   Info.plist            UTI claims (11 video types + public.folder)
@@ -132,6 +134,7 @@ Three keys, in the order you reach for them:
 |---|---|
 | `c` | subtitles on, at the best track this file has — English, or Turkish if it has no English. Again to switch them off. |
 | `b` | none good enough? download one. |
+| `Alt`+`b` | downloaded one is right but late? re-time it against the film's audio. |
 | `Alt`+`c` | pick a specific track from a searchable list. |
 
 **`c` chooses rather than cycles.** `mpv.conf` sets `sub-file-paths=Subs` and
@@ -185,8 +188,30 @@ Measured 2026-09-02, driving the real config over IPC: a movie takes ~4s
 (House of the Dragon S03E06, 733 cues). A file with nothing available says so
 after ~59s.
 
-**Requires** `pipx install subliminal`. `subtitle-fetch.lua` calls it at the
-absolute path `~/.local/bin/subliminal` — see the `PATH` note below.
+**`Alt`+`b` re-times it.** A downloaded subtitle is often right but late,
+timed for a different cut or frame rate; `Shift`+`c` moves it 100ms a press,
+which is fine for half a second and hopeless for twelve.
+[ffsubsync](https://github.com/smacke/ffsubsync) fixes it properly — it runs
+the film's audio through voice detection, does the same to the subtitle's own
+timings, and slides one against the other, correcting the frame rate too. The
+file is rewritten in place, so the fix sticks; the original is kept once as
+`<name>.srt.orig`, and any manual timing nudge is reset. External subtitles
+only — an embedded track is not a file that can be rewritten.
+
+> Verified by planting a subtitle 12s late on a 2h02 film: it came back
+> `offset seconds: -12.040`, its first cue within 40ms of where it started, the
+> backup holding the late version, no leftover temp file, `sub-delay` back to 0
+> and the same track still selected.
+
+> **Unresolved:** the identical command takes 12s from a shell and **242s when
+> mpv spawns it**. CPU contention, pipe backpressure and the macOS background
+> QoS class were each ruled out by measurement (see the comments in
+> `subtitle-sync.lua`), and nothing else mpv spawns here is slowed at all. The
+> timeout is 900s and the on-screen counter runs throughout, so a slow run
+> looks slow rather than broken.
+
+**Requires** `pipx install subliminal` and `pipx install ffsubsync`. Both are
+called at their absolute `~/.local/bin/` paths — see the `PATH` note below.
 
 ## Notes for future edits
 

@@ -264,6 +264,10 @@
         <div class="what"><b>Download subtitles.</b> When the film has none, or none worth watching. It searches the subtitle sites for this exact rip, in English and in Turkish — it fingerprints the file rather than going by the title — saves what it finds next to the video, and switches it on. A film takes a few seconds; an episode can take a minute, and it counts up while it looks. <kbd>Shift</kbd>+<kbd>b</kbd> fetches a fresh copy over one you already have</div>
       </div>
       <div class="row">
+        <div><kbd>alt</kbd>+<kbd>b</kbd></div>
+        <div class="what"><b>Fix subtitle timing automatically.</b> For a subtitle that is the right words at the wrong moment — usually a download timed for a different cut. It listens to the film, works out where the speech actually is, and rewrites the subtitle to match, so the fix is permanent. Takes a couple of minutes on a long film, counting up as it goes. The untouched original is kept alongside, and this only works on a downloaded subtitle, not a built-in one</div>
+      </div>
+      <div class="row">
         <div><kbd>alt</kbd>+<kbd>c</kbd></div>
         <div class="what"><b>Choose a subtitle track</b> from the full list — for a second language, or when the chosen one isn't the one you wanted. Searchable; arrow keys and Return</div>
       </div>
@@ -353,7 +357,7 @@
           <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
           <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page</td></tr>
           <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
-          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, subtitle choosing and downloading, position expiry and reset</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, subtitle choosing, downloading and re-timing, position expiry and reset</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
           <tr><td class="path">/Applications/mpv.app</td><td class="desc">The wrapper Finder opens, plus the purple document icons</td></tr>
         </tbody>

@@ -31,7 +31,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 |---|---|
 | `Shift`+`←`/`→` | 1s |
 | `a` / `d` | 3s |
-| `←` / `→` | 6s |
+| `→` / `←` | 10s forward / 6s back |
 | `Cmd`+`←`/`→` | 10s |
 | `Option`+`←`/`→`, `PgUp`/`PgDn` | 60s |
 | `↑`/`↓` or `w`/`s` | volume ±5 |

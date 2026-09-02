@@ -10,3 +10,8 @@ cache/
 # Single remembered sound level (scripts/global-sound.lua). Machine state, not
 # config - and it changes every time the volume keys are touched.
 sound-state.json
+
+# Subtitles downloaded for a video whose own folder is read-only
+# (scripts/subtitle-fetch.lua falls back to here). Someone else's work, and
+# it names what has been watched.
+subs-fetched/

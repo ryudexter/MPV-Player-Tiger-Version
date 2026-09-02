@@ -257,11 +257,23 @@
     <div class="keys">
       <div class="row">
         <div><kbd>c</kbd></div>
-        <div class="what"><b>Subtitles.</b> Off until you ask. Press to turn on, again for the next language, again to turn off</div>
+        <div class="what"><b>Subtitles.</b> Off until you ask. One press turns them on at the best English track this film has — not the first one, the best one: a film can carry thirty-five subtitle files, and it reads their names, their language tags and the film's own filename to work out which is the real English dialogue. Press again to turn them off</div>
+      </div>
+      <div class="row">
+        <div><kbd>b</kbd></div>
+        <div class="what"><b>Download subtitles.</b> When the film has none, or none worth watching. It searches the subtitle sites for this exact rip — it fingerprints the file rather than going by the title — saves what it finds next to the video, and switches it on. A film takes a few seconds; an episode can take a minute, and it counts up while it looks. <kbd>Shift</kbd>+<kbd>b</kbd> fetches a fresh copy over one you already have</div>
+      </div>
+      <div class="row">
+        <div><kbd>alt</kbd>+<kbd>c</kbd></div>
+        <div class="what"><b>Choose a subtitle track</b> from the full list — for a second language, or when the chosen one isn't the one you wanted. Searchable; arrow keys and Return</div>
+      </div>
+      <div class="row">
+        <div><kbd>C</kbd> <kbd>X</kbd></div>
+        <div class="what"><b>Subtitle timing</b>, in tenths of a second. <kbd>C</kbd> holds the subtitles back, <kbd>X</kbd> pulls them earlier. For a subtitle that is close but drifting against the speech</div>
       </div>
       <div class="row">
         <div><kbd>v</kbd></div>
-        <div class="what"><b>Cancel subtitles.</b> Switches them off wherever you are in the cycle — the next <kbd>c</kbd> starts again from the first language, as if they'd never been on</div>
+        <div class="what"><b>Cancel subtitles.</b> Switches them off and deselects the track, so the next <kbd>c</kbd> starts fresh, as if they'd never been on</div>
       </div>
       <div class="row">
         <div><kbd>↑</kbd> <kbd>↓</kbd> &nbsp;or&nbsp; <kbd>w</kbd> <kbd>s</kbd></div>
@@ -341,7 +353,7 @@
           <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
           <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page</td></tr>
           <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
-          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, control-bar idle hide, show in Finder, position expiry and reset</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, subtitle choosing and downloading, position expiry and reset</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
           <tr><td class="path">/Applications/mpv.app</td><td class="desc">The wrapper Finder opens, plus the purple document icons</td></tr>
         </tbody>
@@ -353,7 +365,7 @@
   </section>
 
   <footer>
-    Built on mpv 0.41.0 (Homebrew) · macOS · 28 August 2026
+    Built on mpv 0.41.0 (Homebrew) · macOS · 2 September 2026
   </footer>
 
 </div>

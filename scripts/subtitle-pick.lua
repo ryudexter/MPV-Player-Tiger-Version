@@ -66,15 +66,12 @@ local function score(t, stem)
     return s
 end
 
-local function toggle()
-    local on = mp.get_property_bool("sub-visibility")
-              and (mp.get_property("current-tracks/sub/id") ~= nil)
-    if on then
-        mp.set_property("sid", "no")
-        mp.osd_message("Subtitles off", 1.5)
-        return
-    end
-
+-- Turn subtitles on at the best-scoring track, whatever is selected now.
+-- Split out of toggle() so scripts/subtitle-fetch.lua can reuse it after a
+-- download: the scoring is the whole point of this script and belongs in one
+-- place, and unlike toggle() this must never switch subtitles OFF - you have
+-- just asked for them.
+local function select_best()
     local best, best_score
     local stem = video_stem()
     for _, t in ipairs(mp.get_property_native("track-list") or {}) do
@@ -98,4 +95,19 @@ local function toggle()
         n > 1 and string.format("   (%d available - Alt+c to choose)", n) or ""), 2.5)
 end
 
+local function toggle()
+    local on = mp.get_property_bool("sub-visibility")
+              and (mp.get_property("current-tracks/sub/id") ~= nil)
+    if on then
+        mp.set_property("sid", "no")
+        mp.osd_message("Subtitles off", 1.5)
+        return
+    end
+    select_best()
+end
+
 mp.add_key_binding(nil, "subs-toggle", toggle)
+
+-- Used by scripts/subtitle-fetch.lua once a downloaded subtitle has been
+-- rescanned into the track list.
+mp.register_script_message("subs-pick-best", select_best)

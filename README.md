@@ -1,8 +1,8 @@
 # mpv — macOS setup
 
 A hand-tuned [mpv](https://mpv.io) configuration for macOS: a single-instance
-launcher, seven Lua scripts, and a `.app` wrapper that makes mpv behave like a
-native double-click-to-play media player.
+launcher, thirteen Lua scripts, and a `.app` wrapper that makes mpv behave like
+a native double-click-to-play media player.
 
 Every value in `mpv.conf` carries a comment explaining *why* it is set, usually
 with the measurement that justified it.
@@ -19,6 +19,8 @@ with the measurement that justified it.
 | **Vertical volume bar** | Observes the `volume` *property*, so any new volume binding gets the bar for free. |
 | **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar with the time underneath. |
 | **Seek thumbnails** | Hover the bottom strip and the frame at that point appears above the pointer. mpv has none of its own, and its built-in OSC cannot drive thumbfast — usually you have to adopt uosc's whole UI to get this. Here it is one 86-line bridge. |
+| **Subtitles from the internet** | `b` downloads a subtitle for the playing file and switches it on — mpv's answer to VLC's VLsub, which mpv has no equivalent of out of the box. Anonymous sources only, no account anywhere. |
+| **The right subtitle, not the first one** | `sub-auto=all` loads whole `Subs/` folders — one film here offers 35 — so `c` scores them by language tag, filename and the video's own stem instead of cycling through the lot. |
 | **No hairline** | macOS strokes a 1pt, 20%-white edge on every window, visible in fullscreen over dark video. `native-fs=yes` removes the window, and with it the stroke. |
 
 ## Keys
@@ -35,7 +37,10 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `↑`/`↓` or `w`/`s` | volume ±5 |
 | `x` / `z` | next / previous (position-preserving) |
 | `Cmd`+`z` | shuffle on/off |
-| `c` / `v` | cycle subtitles / subtitles off |
+| `c` / `v` | subtitles on at the best track / subtitles off |
+| `Alt`+`c` | choose a subtitle track from a searchable list |
+| `Shift`+`c` / `Shift`+`x` | subtitle timing ±100ms |
+| `b` / `Shift`+`b` | download subtitles / download again over one already there |
 | `g` | zoom to fill ↔ original aspect |
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `l` | reveal the playing file in Finder |
@@ -64,6 +69,9 @@ scripts/
   reveal-in-finder.lua  l → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
   trash-file.lua        Cmd+Delete → /usr/bin/trash, playback untouched
+  subtitle-pick.lua     c → score every sub track and pick the best English one
+  subtitle-fetch.lua    b → download a subtitle with the subliminal CLI
+  global-sound.lua      one volume level for everything, not one per file
 app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source
@@ -75,6 +83,7 @@ app/
 ```sh
 brew install mpv yt-dlp
 brew install --cask quicklook-video          # MKV/WebM thumbnails
+pipx install subliminal                      # subtitle downloads (the b key)
 git clone git@github.com:ryudexter/mpv-macos-setup.git ~/.config/mpv
 ```
 
@@ -115,6 +124,57 @@ leaving the setup exactly as it was. Then quit mpv fully (`Cmd`+`Q`) — the
 launcher keeps one long-lived instance, so scripts are only re-read on a real
 restart.
 
+## Subtitles
+
+Three keys, in the order you reach for them:
+
+| | |
+|---|---|
+| `c` | subtitles on, at the best track this file has. Again to switch them off. |
+| `b` | none good enough? download one. |
+| `Alt`+`c` | pick a specific track from a searchable list. |
+
+**`c` chooses rather than cycles.** `mpv.conf` sets `sub-file-paths=Subs` and
+`sub-auto=all`, because releases park their subtitles in a subfolder under names
+like `English.srt` that match nothing about the video — without it they are
+invisible. The cost is volume: Project Hail Mary went from 1 track to 36.
+`subtitle-pick.lua` scores every track — English in the language tag or the
+filename, embedded, filename matching this video's stem, minus points for SDH
+and forced tracks — and selects the winner in one press.
+
+> The stem bonus is what stops it picking the wrong episode. A Solo Leveling
+> season folder holds 12 videos and 12 `.srt` files, and *all twelve* subtitle
+> names contain "English" — from `[English Dub]` — so on the language signal
+> alone episode 1's subtitles win no matter which episode is playing.
+
+**`b` downloads one** — this config's answer to VLC's VLsub, which mpv has no
+built-in equivalent of. It shells out to
+[subliminal](https://github.com/Diaoul/subliminal), which hashes the video and
+searches several sites at once, so it finds a subtitle timed for *this* rip
+rather than guessing from the title. The result lands next to the video as
+`<name>.en.srt` and is switched on when it arrives. `Shift`+`b` downloads again
+over a subtitle file that is already there.
+
+Anonymous sources only — nothing here has a login:
+
+| | |
+|---|---|
+| `bsplayer` | movies **and** episodes, matched by file hash. The workhorse. |
+| `gestdown` | episodes only (an addic7ed mirror). |
+| `tvsubtitles` | episodes only. |
+| `podnapisi` | listed, but the site currently has no DNS record at all. Kept so it starts working again by itself if it comes back. |
+
+subliminal can also query opensubtitles.com — the source VLsub uses — but that
+needs an account and an API key, so it is deliberately left out.
+
+Measured 2026-09-02, driving the real config over IPC: a movie takes ~4s
+(Margin Call, 1353 cues), an episode ~57s because two more sites are involved
+(House of the Dragon S03E06, 733 cues). A file with nothing available says so
+after ~59s.
+
+**Requires** `pipx install subliminal`. `subtitle-fetch.lua` calls it at the
+absolute path `~/.local/bin/subliminal` — see the `PATH` note below.
+
 ## Notes for future edits
 
 Things that cost real time here, all recorded in the config comments too:
@@ -151,5 +211,20 @@ Things that cost real time here, all recorded in the config comments too:
   path for that reason.
 - `script-list` is not a property in 0.41. Querying it returns "property not
   found", which is easy to misread as "no scripts loaded".
+- Subtitle searches are slow enough to look hung: an episode legitimately took
+  57s, so `subtitle-fetch.lua` allows 180s. A first draft allowed 60 and came
+  within 3s of killing a search that was working.
+- After a download, `subtitle-fetch.lua` selects the file it just fetched
+  instead of re-scoring the list. `subtitle-pick.lua` rates an embedded English
+  track above a downloaded one, which is right in general — but on a file with
+  36 embedded tracks it meant `b` spent 57s fetching a subtitle and then
+  displayed a different one.
+- A `sub-add`ed subtitle has **no language at all** unless one is passed
+  explicitly, even when the filename ends `.en.srt`; the same file auto-loaded
+  from beside the video reports `lang=en`. The scoring reads that tag, so the
+  read-only-folder path passes the language by hand.
+- For subtitle work, hardlink a real video into a scratch folder: same bytes and
+  therefore the same provider hash, no copy, and nothing written into the media
+  library.
 - For key problems, `--msg-level=input=trace --log-file=…` shows what mpv
   actually received. Measure; nearly every bug here looked like something else.

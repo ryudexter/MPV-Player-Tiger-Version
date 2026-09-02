@@ -14,9 +14,9 @@
 -- so slang=eng would never have found it. Hence the scoring below, which reads
 -- the filename as well as the tag.
 --
--- c is now a toggle: on at the best English track - or Turkish, if this file
--- has no English - and off again. Alt+c opens mpv's own searchable track list
--- for anything else.
+-- c steps through the languages the film actually has and then switches off:
+-- English, Turkish, off. A film with only one of them is just on, off. Alt+c
+-- opens mpv's own searchable track list for anything else.
 
 local function label(t)
     if t.title and t.title ~= "" then return t.title end
@@ -41,8 +41,9 @@ end
 -- hence both byte spellings of the ü. "turk" is the stem of Turkish, Turkce
 -- and Turkiye alike, so one entry covers the lot.
 local WANTED = {
-    { code = "en", score = 1000, words = { "english" } },
-    { code = "tr", score =  500, words = { "turk", "t\195\188rk", "t\195\156rk" } },
+    { code = "en", name = "English", score = 1000, words = { "english" } },
+    { code = "tr", name = "Turkish", score =  500,
+      words = { "turk", "t\195\188rk", "t\195\156rk" } },
 }
 
 -- Higher is better, and the language band dominates - see the loop below.
@@ -70,7 +71,8 @@ local function score(t, stem)
     -- the commonest English subtitle in this library, a bare "English.srt" in
     -- a Subs/ folder, has NO language tag at all - name-only English must
     -- still outrank a Turkish track that has both.
-    for _, w in ipairs(WANTED) do
+    local band                        -- which WANTED entry this track is
+    for i, w in ipairs(WANTED) do
         local by_tag  = lang:match("^" .. w.code)
         local by_name = false
         for _, word in ipairs(w.words) do
@@ -79,6 +81,7 @@ local function score(t, stem)
         if by_tag or by_name then
             s = s + w.score
             if by_tag and by_name then s = s + 25 end
+            band = i
             break                     -- first match wins: WANTED is ordered
         end
     end
@@ -97,50 +100,105 @@ local function score(t, stem)
     -- forced tracks only translate the odd foreign line, not the dialogue
     if t.forced or text:match("forced") then s = s - 40 end
     if t.default then s = s + 5 end
-    return s
+    return s, band
 end
 
--- Turn subtitles on at the best-scoring track, whatever is selected now.
--- Split out of toggle() so scripts/subtitle-fetch.lua can reuse it after a
--- download: the scoring is the whole point of this script and belongs in one
--- place, and unlike toggle() this must never switch subtitles OFF - you have
--- just asked for them.
-local function select_best()
-    local best, best_score
+-- The best track for each wanted language, in preference order, plus the best
+-- track overall. A film usually offers one of these languages, sometimes both,
+-- occasionally neither (a German-only release), and c has to behave sensibly
+-- in all three cases.
+local function best_tracks()
     local stem = video_stem()
-    for _, t in ipairs(mp.get_property_native("track-list") or {}) do
-        if t.type == "sub" then
-            local s = score(t, stem)
-            if not best_score or s > best_score then best, best_score = t, s end
-        end
-    end
-    if not best then
-        mp.osd_message("No subtitles for this file", 2)
-        return
-    end
-
-    mp.set_property_number("sid", best.id)
-    mp.set_property_bool("sub-visibility", true)
+    local per_band, overall, overall_s = {}, nil, nil
     local n = 0
     for _, t in ipairs(mp.get_property_native("track-list") or {}) do
-        if t.type == "sub" then n = n + 1 end
+        if t.type == "sub" then
+            n = n + 1
+            local sc, band = score(t, stem)
+            if band and (not per_band[band] or sc > per_band[band].score) then
+                per_band[band] = { track = t, score = sc }
+            end
+            if not overall_s or sc > overall_s then overall, overall_s = t, sc end
+        end
     end
-    mp.osd_message(string.format("Subtitles: %s%s", label(best),
-        n > 1 and string.format("   (%d available - Alt+c to choose)", n) or ""), 2.5)
+    local ordered = {}
+    for i, w in ipairs(WANTED) do
+        if per_band[i] then
+            ordered[#ordered + 1] = { track = per_band[i].track, name = w.name }
+        end
+    end
+    return ordered, overall, n
 end
 
-local function toggle()
-    local on = mp.get_property_bool("sub-visibility")
-              and (mp.get_property("current-tracks/sub/id") ~= nil)
-    if on then
-        mp.set_property("sid", "no")
-        mp.osd_message("Subtitles off", 1.5)
+local function show(track, name, note)
+    mp.set_property_number("sid", track.id)
+    mp.set_property_bool("sub-visibility", true)
+    mp.osd_message(string.format("Subtitles: %s%s%s",
+        name and (name .. " - ") or "", label(track),
+        note and ("   (" .. note .. ")") or ""), 2.5)
+end
+
+local function off()
+    mp.set_property("sid", "no")
+    mp.osd_message("Subtitles off", 1.5)
+end
+
+-- c steps through the languages this film actually has, then switches off:
+-- English, Turkish, off. A film with only one of them is simply on, off.
+--
+-- The step is worked out from WHAT IS SELECTED, never from a counter, so it
+-- still behaves after v, after choosing something by hand with Alt+c, or after
+-- moving to another file - a counter would drift out of step with the screen.
+local function cycle()
+    local ordered, overall, n = best_tracks()
+
+    local cur = mp.get_property_number("current-tracks/sub/id")
+    local on  = mp.get_property_bool("sub-visibility") and cur ~= nil
+
+    -- Neither English nor Turkish: fall back to plain on/off at the best track
+    -- there is, so a German-only release is not left with a dead key.
+    if #ordered == 0 then
+        if on then off()
+        elseif overall then show(overall, nil, n > 1 and "Alt+c to choose" or nil)
+        else mp.osd_message("No subtitles for this file", 2) end
         return
     end
-    select_best()
+
+    local pos
+    if on then
+        for i, e in ipairs(ordered) do
+            if e.track.id == cur then pos = i end
+        end
+    end
+
+    -- Not on, or on something outside the cycle (a track picked with Alt+c):
+    -- start again at the preferred language.
+    local nxt = (pos and pos + 1) or 1
+    local step = ordered[nxt]
+    if not step then off(); return end
+
+    local after = ordered[nxt + 1]
+    show(step.track, step.name,
+         after and ("c again for " .. after.name)
+                or (n > 1 and "c again to switch off" or nil))
 end
 
-mp.add_key_binding(nil, "subs-toggle", toggle)
+-- Used by scripts/subtitle-fetch.lua after a download: the best track outright,
+-- no cycling, and it must never switch subtitles off - they have just been
+-- asked for.
+local function select_best()
+    local ordered, overall, n = best_tracks()
+    local first = ordered[1]
+    if first then
+        show(first.track, first.name, ordered[2] and ("c again for " .. ordered[2].name) or nil)
+    elseif overall then
+        show(overall, nil, n > 1 and "Alt+c to choose" or nil)
+    else
+        mp.osd_message("No subtitles for this file", 2)
+    end
+end
+
+mp.add_key_binding(nil, "subs-toggle", cycle)
 
 -- Used by scripts/subtitle-fetch.lua once a downloaded subtitle has been
 -- rescanned into the track list.

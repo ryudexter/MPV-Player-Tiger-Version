@@ -37,7 +37,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `↑`/`↓` or `w`/`s` | volume ±5 |
 | `x` / `z` | next / previous (position-preserving) |
 | `Cmd`+`z` | shuffle on/off |
-| `c` / `v` | subtitles on at the best track / subtitles off |
+| `c` / `v` | subtitles: English → Turkish → off / subtitles off outright |
 | `Alt`+`c` | choose a subtitle track from a searchable list |
 | `Shift`+`c` / `Shift`+`x` | subtitle timing ±100ms |
 | `b` / `Shift`+`b` | download subtitles / download again over one already there |
@@ -132,15 +132,22 @@ Three keys, in the order you reach for them:
 
 | | |
 |---|---|
-| `c` | subtitles on, at the best track this file has — English, or Turkish if it has no English. Again to switch them off. |
+| `c` | subtitles on. Press again for Turkish, again for off. |
 | `b` | none good enough? download one. |
 | `Alt`+`b` | downloaded one is right but late? re-time it against the film's audio. |
 | `Alt`+`c` | pick a specific track from a searchable list. |
 
-**`c` chooses rather than cycles.** `mpv.conf` sets `sub-file-paths=Subs` and
+**`c` chooses, then lets you change your mind.** The first press gives you
+English, a second press Turkish, a third switches subtitles off — and the
+message on screen says what the next press will do. A film that only has one of
+the two languages is simply on, then off. `mpv.conf` sets `sub-file-paths=Subs` and
 `sub-auto=all`, because releases park their subtitles in a subfolder under names
 like `English.srt` that match nothing about the video — without it they are
 invisible. The cost is volume: Project Hail Mary went from 1 track to 36.
+Each press is worked out from what is currently selected, never from a
+counter, so it stays in step after `v`, after picking something by hand with
+`Alt`+`c`, or after moving to another film.
+
 `subtitle-pick.lua` scores every track — the language in the tag or the
 filename, embedded, filename matching this video's stem, minus points for SDH
 and forced tracks — and selects the winner in one press. English and Turkish

@@ -255,7 +255,7 @@
         <div class="what"><b>Save a piece of this video.</b> Mark where the bit you want starts, mark where it ends, and it writes just that stretch to the Desktop as an ordinary mp4 — the kind anything will play, including a phone. The clip keeps the subtitles and picture settings you had on at the time. A few seconds long takes a few seconds to make</div>
       </div>
       <div class="row">
-        <div><kbd>l</kbd></div>
+        <div><kbd>i</kbd></div>
         <div class="what"><b>Show in Finder.</b> Opens the folder the video lives in, in a new Finder window, with the file already selected — exactly as if you had clicked it there</div>
       </div>
     </div>
@@ -292,6 +292,14 @@
         <div class="what"><b>Cancel subtitles.</b> Switches them off wherever you are in the cycle, so the next <kbd>c</kbd> starts fresh in English</div>
       </div>
       <div class="row">
+        <div><kbd>l</kbd></div>
+        <div class="what"><b>Change the spoken language.</b> A film with more than one soundtrack starts in <b>English</b> without being asked — an anime with an English dub plays dubbed, not subtitled. One press moves to the next language the film carries, another comes back round to English, and the message on screen names the language you have just moved to and the one the next press will give. It picks the film's real soundtrack, not a director's commentary that happens to be in English and happens to be listed first</div>
+      </div>
+      <div class="row">
+        <div><kbd>alt</kbd>+<kbd>l</kbd></div>
+        <div class="what"><b>Choose a soundtrack</b> from the full list — a second English mix, or that commentary. Searchable, like the subtitle list above. <kbd>l</kbd> deals in languages, so on a film with two English mixes it offers English once; this is how you reach the other one</div>
+      </div>
+      <div class="row">
         <div><kbd>↑</kbd> <kbd>↓</kbd> &nbsp;or&nbsp; <kbd>w</kbd> <kbd>s</kbd></div>
         <div class="what"><b>Volume</b>, up and down. Two pairs that do exactly the same thing — the arrows, or <kbd>w</kbd> and <kbd>s</kbd> for one hand off the arrow keys. Either shows a vertical bar on the right, with a tick marking 100%. The level is shared by everything — set it once and the next video opens at the same volume, instead of each file remembering its own</div>
       </div>
@@ -312,8 +320,8 @@
         <div class="what"><b>Zoom to fill.</b> A wide film normally sits between two black bands. This crops them away so the picture fills the screen — at the cost of losing a strip off each side. Press again to go back</div>
       </div>
       <div class="row">
-        <div><kbd>i</kbd></div>
-        <div class="what">Playback statistics, if you ever suspect stutter</div>
+        <div><kbd>Shift</kbd><span class="plus">+</span><kbd>I</kbd></div>
+        <div class="what">Playback statistics, if you ever suspect stutter. This was on plain <kbd>i</kbd> until Show in Finder took that key; mpv offers the page on both, and this one stays up until you press it again</div>
       </div>
     </div>
   </section>
@@ -348,7 +356,8 @@
       <li><span><b>Zoom is remembered per film.</b> Unlike subtitles, a film you zoomed with <kbd>g</kbd> is still zoomed when you come back to it.</span></li>
       <li><span><kbd>Shift</kbd><span class="plus">+</span><kbd>Q</kbd> <b>saves and quits</b> — the same as closing normally, kept because it's an mpv habit.</span></li>
       <li><span><kbd>Return</kbd>, <kbd>&gt;</kbd> <b>and</b> <kbd>&lt;</kbd> <b>are dead too.</b> All three were spare copies of <kbd>x</kbd> and <kbd>z</kbd>, and a stray press skipped the video. The mouse’s back and forward buttons still do it.</span></li>
-      <li><span><kbd>l</kbd> <b>used to set loop points.</b> mpv's default <kbd>l</kbd> marked the start and end of a repeating section; it is now Show in Finder.</span></li>
+      <li><span><kbd>l</kbd> <b>used to set loop points, and then to show the file in Finder.</b> mpv's default <kbd>l</kbd> marked the start and end of a repeating section, which nothing here ever used; it was Show in Finder for a week, and is now the audio-language key. Show in Finder moved to <kbd>i</kbd>.</span></li>
+      <li><span><b>mpv has no language preference of its own.</b> It plays whichever soundtrack the file marks as its default, whatever language that is — on Solo Leveling season 2 that is Japanese, every episode. Preferring English is a setting this config adds, and the two cases it cannot cover on its own — a soundtrack labelled "English" but tagged with no language at all, and an English commentary listed ahead of the film — are handled by a script.</span></li>
       <li><span><kbd>w</kbd> <b>and</b> <kbd>s</kbd> <b>used to do something else.</b> By default they nudged the crop and took a screenshot; both were easy to hit by accident, and both are gone. Cropping has a proper on/off switch on <kbd>g</kbd> instead.</span></li>
     </ul>
   </section>
@@ -376,7 +385,7 @@
           <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
           <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page, and a note for the one bound elsewhere</td></tr>
           <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
-          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, audio-language choosing, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
           <tr><td class="path">/Applications/mpv.app</td><td class="desc">The wrapper Finder opens, plus the purple document icons</td></tr>
         </tbody>

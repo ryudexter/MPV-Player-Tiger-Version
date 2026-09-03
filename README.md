@@ -20,7 +20,7 @@ with the measurement that justified it.
 | **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar with the time underneath. |
 | **Seek thumbnails** | Hover the bottom strip and the frame at that point appears above the pointer. mpv has none of its own, and its built-in OSC cannot drive thumbfast — usually you have to adopt uosc's whole UI to get this. Here it is one 86-line bridge. |
 | **Skip the intro without chapters** | `k` runs the file at 100x behind a black frame until the audio drops below -30dB, which on a normal episode is the gap between the title sequence and the first line. Most files carry no chapter marks, so the chapter keys cannot do this. Lands within 24ms of where ffmpeg's own `silencedetect` puts the silence. |
-| **Clip export** | `Shift`+`W` sets an in and an out point on the playing file and writes the section to the Desktop as an h264 mp4, without leaving the player. Encoding is a second headless mpv, so the clip inherits the tracks and filters you are actually watching. |
+| **Clip export** | `Cmd`+`t` sets an in and an out point on the playing file and writes the section to the Desktop as an h264 mp4, without leaving the player. Encoding is a second headless mpv, so the clip inherits the tracks and filters you are actually watching. |
 | **Subtitles from the internet** | `b` downloads a subtitle for the playing file and switches it on — mpv's answer to VLC's VLsub, which mpv has no equivalent of out of the box. Anonymous sources only, no account anywhere. |
 | **The right subtitle, not the first one** | `sub-auto=all` loads whole `Subs/` folders — one film here offers 35 — so `c` scores them by language tag, filename and the video's own stem instead of cycling through the lot. |
 | **No hairline** | macOS strokes a 1pt, 20%-white edge on every window, visible in fullscreen over dark video. `native-fs=yes` removes the window, and with it the stroke. |
@@ -47,7 +47,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `Alt`+`b` | re-time the subtitle against the film's audio |
 | `g` | zoom to fill ↔ original aspect |
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
-| `Shift`+`W` | cut a clip out of what's playing and save it to the Desktop |
+| `Cmd`+`t` | cut a clip out of what's playing and save it to the Desktop |
 | `l` | reveal the playing file in Finder |
 | `0` `0` | wipe all saved playback positions |
 
@@ -81,7 +81,7 @@ scripts/
   subtitle-sync.lua     Alt+b → re-time it with the ffsubsync CLI
   global-sound.lua      one volume level for everything, not one per file
   skiptosilence.lua     k → fast-forward to the next silence (detuur, MIT, patched)
-  webm.lua              Shift+W → clip out a section (ekisu/mpv-webm, MIT, patched)
+  webm.lua              Cmd+T → clip out a section (ekisu/mpv-webm, MIT, patched)
 app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source

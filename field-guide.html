@@ -324,8 +324,11 @@
     <ul class="plain">
       <li><span><b>Finishing a video</b> clears its own position, so it starts fresh next time.</span></li>
       <li><span><b>Thirty days</b> — anything untouched that long is dropped automatically at startup.</span></li>
-      <li><span><b><kbd>0</kbd> then <kbd>0</kbd> again</b> wipes every saved position at once. The first press only arms it and shows a count; the second commits. The arming expires after 3 seconds, so two stray presses minutes apart can't do it.</span></li>
+      <li><span><b><kbd>0</kbd> then <kbd>0</kbd> again</b> clears the videos you have open — the folder you are watching, any other folder you opened alongside it, and any folder inside those — and sends the video on screen back to its own start. Everything outside that keeps its place. The first press only arms it and tells you how many videos it covers; the second commits. The arming lapses after 5 seconds, so two stray presses minutes apart can't do it, and a second press that arrives too late says so instead of silently starting over.</span></li>
     </ul>
+    <div class="note">
+      <b>Close the playlist menu before you press it.</b> While mpv's own playlist list is open (<kbd>Ctrl</kbd>+<kbd>p</kbd>) it claims every ordinary key for its search box, so <kbd>0</kbd> is typed into the filter and never reaches the reset. Nothing is cleared and the video keeps resuming — which looks exactly like a reset that did nothing.
+    </div>
     <div class="note">
       Positions are keyed to the file's <b>path</b>, so renaming or moving a video loses its place.
     </div>

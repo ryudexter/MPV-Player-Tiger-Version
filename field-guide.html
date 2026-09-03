@@ -187,11 +187,15 @@
 
   <section>
     <h2><span class="num">02</span> Moving inside a video</h2>
-    <p class="lede">Five jump sizes, smallest to largest. Every one lands on the exact second — none of them drift to the nearest keyframe.</p>
+    <p class="lede">Four fixed jump sizes, and two more that work out their own landing point. Every one lands on the exact second — none of them drift to the nearest keyframe.</p>
     <div class="keys">
       <div class="row">
         <div><kbd>Shift</kbd><span class="plus">+</span><kbd>←</kbd> <kbd>→</kbd></div>
         <div class="what"><b>Jump a chapter</b> back or forward. Most films only mark a few act breaks, but a WEB-DL episode often marks every scene — those are the little triangles along the seek bar</div>
+      </div>
+      <div class="row">
+        <div><kbd>k</kbd></div>
+        <div class="what"><b>Skip the opening titles.</b> Runs the video forward at speed until the sound drops away — which on an episode is the pause between the title sequence and the first line. Unlike the chapter key above it needs no chapter marks, so it works on the many files that carry none. Press <kbd>k</kbd> again while it is running to call it off and go back to where you were, and if the sound never drops it gives up on its own rather than running to the end</div>
       </div>
       <div class="row">
         <div><kbd>a</kbd> <kbd>d</kbd></div>
@@ -240,11 +244,15 @@
 
   <section>
     <h2><span class="num">04</span> Where is this file?</h2>
-    <p class="lede">For when you want the file itself — to rename it, move it, or just see where it came from.</p>
+    <p class="lede">For when you want the file itself — to rename it, move it, take a piece out of it, or just see where it came from.</p>
     <div class="keys">
       <div class="row">
         <div><kbd>⌘</kbd><span class="plus">+</span><kbd>Delete</kbd></div>
         <div class="what"><b>Move this video to the Trash.</b> The same chord Finder uses. Playback carries straight on from where it was and mpv never quits — the video keeps playing from a file that is already in the Trash, and the dead entry is dropped from the queue once you leave it</div>
+      </div>
+      <div class="row">
+        <div><kbd>Shift</kbd><span class="plus">+</span><kbd>W</kbd></div>
+        <div class="what"><b>Save a piece of this video.</b> Mark where the bit you want starts, mark where it ends, and it writes just that stretch to the Desktop as an ordinary mp4 — the kind anything will play, including a phone. The clip keeps the subtitles and picture settings you had on at the time. A few seconds long takes a few seconds to make</div>
       </div>
       <div class="row">
         <div><kbd>l</kbd></div>
@@ -363,9 +371,9 @@
         </thead>
         <tbody>
           <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
-          <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page</td></tr>
+          <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page, and a note for the one bound elsewhere</td></tr>
           <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
-          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, subtitle choosing, downloading and re-timing, position expiry and reset</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
           <tr><td class="path">/Applications/mpv.app</td><td class="desc">The wrapper Finder opens, plus the purple document icons</td></tr>
         </tbody>
@@ -377,7 +385,7 @@
   </section>
 
   <footer>
-    Built on mpv 0.41.0 (Homebrew) · macOS · 2 September 2026
+    Built on mpv 0.41.0 (Homebrew) · macOS · 3 September 2026
   </footer>
 
 </div>

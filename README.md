@@ -24,6 +24,7 @@ with the measurement that justified it.
 | **Subtitles from the internet** | `b` downloads a subtitle for the playing file and switches it on — mpv's answer to VLC's VLsub, which mpv has no equivalent of out of the box. Anonymous sources only, no account anywhere. |
 | **English audio, without asking** | A film with several soundtracks plays in English. Stock mpv takes whichever track the file flags as default — on Solo Leveling season 2 that is Japanese. `l` steps through the other languages. |
 | **The right subtitle, not the first one** | `sub-auto=all` loads whole `Subs/` folders — one film here offers 35 — so `c` scores them by language tag, filename and the video's own stem instead of cycling through the lot. |
+| **Animation gets sharpened, by itself** | Anime4K redraws the line art on animated shows instead of merely enlarging it — 97 episodes here are 1080p on a 3456x2234 panel. It picks the files on its own from a folder list, leaves live action alone, and `y` overrides the choice. Nothing is written to the video: it is a live effect on the frame on its way to the screen. |
 | **No hairline** | macOS strokes a 1pt, 20%-white edge on every window, visible in fullscreen over dark video. `native-fs=yes` removes the window, and with it the stroke. |
 
 ## Keys
@@ -49,6 +50,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `b` / `Shift`+`b` | download subtitles / download again over one already there |
 | `Alt`+`b` | re-time the subtitle against the film's audio |
 | `g` | zoom to fill ↔ original aspect |
+| `y` | sharper picture: auto → always on → off (auto = on for animation only) |
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `Cmd`+`t` | cut a clip out of what's playing and save it to the Desktop |
 | `i` | reveal the playing file in Finder |
@@ -64,7 +66,9 @@ mpv.conf              settings, every value commented with why
 input.conf            all keybindings
 mpv-open              single-instance launcher (Python)
 field-guide.html      illustrated guide to the whole setup
+shaders/              Anime4K v4.0.1, Mode A (HQ) only — 6 of the 39 files (MIT)
 script-opts/
+  video-quality.conf    which folders count as animation
   thumbfast.conf        preview size, idle shutdown, absolute mpv path
   skiptosilence.conf    silence threshold, minimum length, mute while skipping
   webm.conf             mp4 output, quality, Desktop output dir, absolute mpv path
@@ -79,6 +83,7 @@ scripts/
   reveal-in-finder.lua  i → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
   trash-file.lua        Cmd+Delete → /usr/bin/trash, playback untouched
+  video-quality.lua     Anime4K on animation only; y cycles auto/on/off
   audio-pick.lua        English soundtrack by default; l → next language
   subtitle-pick.lua     c → score every sub track and pick the best English one
   subtitle-fetch.lua    b → download a subtitle with the subliminal CLI
@@ -137,6 +142,45 @@ That takes out both scripts, the config, and the idle-timeout change together,
 leaving the setup exactly as it was. Then quit mpv fully (`Cmd`+`Q`) — the
 launcher keeps one long-lived instance, so scripts are only re-read on a real
 restart.
+
+## Sharper picture (animation)
+
+Animated shows are sharpened automatically. Everything here is 1080p and the
+laptop panel is 3456x2234, so every frame is being stretched; [Anime4K][a4k]
+redraws the line art rather than just enlarging it. Faces, eyelashes and the
+edges of flat colour come back noticeably crisper.
+
+**Nothing is written to your video files.** Shaders are a live effect — the GPU
+redraws each frame on its way to the screen, the way a filter on a camera
+preview works. The file is opened read-only and stays byte-for-byte identical,
+and `glsl-shaders` is not one of mpv's 47 watch-later options, so resume
+positions are untouched. Switch it off and the picture is instantly back.
+
+It chooses per video. A file whose path contains one of the names in
+`script-opts/video-quality.conf` gets the shaders; everything else keeps the
+`high-quality` profile from `mpv.conf`. **Live action is excluded on purpose** —
+anime shaders on real footage make skin look waxy and put halos on edges.
+
+| `y` | auto → always on → off → auto. The message says which you landed on. |
+|---|---|
+
+Use **always on** for an animated film that is not in the list yet, and **off**
+to compare the same frame with and without.
+
+**Adding a new show** is one line — append it to `animation_paths` in
+`script-opts/video-quality.conf`, semicolon-separated. It is matched as plain
+text anywhere in the path, ignoring case, so the folder name alone is enough.
+Watch the `=`: mpv silently ignores `key = value` with spaces around it.
+
+Only Mode A (HQ) is kept — 6 of the release's 39 shaders, 340K instead of
+2.3MB. To try Mode B or C, fetch the [v4.0.1 zip][a4k] again and swap the
+`SHADERS` list in `scripts/video-quality.lua`.
+
+There is no "light" preset because there is nothing to save: measured at
+3456x2168 fullscreen, every preset up to Mode A *ultra* ran with **zero dropped
+and zero delayed frames, even at 4x playback speed**.
+
+[a4k]: https://github.com/bloc97/Anime4K
 
 ## Audio languages
 

@@ -259,6 +259,17 @@ Things that cost real time here, all recorded in the config comments too:
 - mpv writes a `# redirect entry` for **every ancestor directory** of a file,
   all the way to the root: one video eight levels down leaves nine files
   behind. Counting the folder gives a count of directories, not of videos.
+- A saved position is keyed on an MD5 of the path **bytes**, but APFS is
+  normalisation-*insensitive*: `film-ö.mp4` spelled composed (`c3 b6`) and
+  decomposed (`6f cc 88`) open the same inode and get two separate
+  `watch_later` entries. `autocreate-playlist` normally hides this by rebuilding
+  entries from mpv's own `readdir`, but it does not run when mpv is handed
+  several files at once — a Finder multi-select — so a path arriving in the
+  other form keeps it, and its entry becomes unreachable. `watch-later-reset.lua`
+  deletes both spellings, via `iconv`'s `UTF-8-MAC` (macOS's own decomposed
+  form). Measured 2026-09-03: deleting the composed spelling of a decomposed
+  entry cleared all 8 ancestor redirects but left the position, still resuming
+  at 43.2s.
 - The OSC's seek bar does **not** span the window: in the default bottombar
   layout it is inset between the elapsed and remaining timecodes (x≈234..874 in
   a 1280-wide window). Mapping a pointer across the full width instead is out by

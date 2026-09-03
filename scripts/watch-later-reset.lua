@@ -145,6 +145,62 @@ local function playlist_targets()
     return list, files
 end
 
+-- macOS stores a filename in whichever Unicode normalisation form created it,
+-- and APFS is normalisation-INSENSITIVE: the composed spelling ("ö" as a single
+-- codepoint) and the decomposed one ("o" + a combining diaeresis) open the very
+-- same inode. mpv, though, keys a saved position on an MD5 of the path BYTES,
+-- so the two spellings get two separate watch_later entries, and deleting one
+-- leaves the other behind - the video carries on resuming. Measured 2026-09-03:
+-- seeding under the decomposed spelling and then deleting under the composed one
+-- removed all 8 ancestor redirects but left the position itself, and the file
+-- still resumed at 43.2s.
+--
+-- mpv usually hides this, because --autocreate-playlist rebuilds every entry
+-- from its own readdir, i.e. from the spelling actually on disk. It does NOT do
+-- that when it is handed several files at once - which is precisely what
+-- mpv-open does for a Finder multi-select - so a path arriving in the other form
+-- (a NAS share, an .m3u, a path typed by hand) stays in that form, and its entry
+-- is then unreachable by any later reset.
+--
+-- So hand mpv both spellings. iconv's UTF-8-MAC is the decomposed form macOS
+-- itself uses, which makes it exactly the pair that can collide.
+local function alt_spellings(paths)
+    local batch = {}
+    for _, p in ipairs(paths) do
+        -- an ASCII path has only one spelling, which covers nearly all of them;
+        -- a path containing a newline cannot be round-tripped through a
+        -- line-delimited pipe, and is not worth a subprocess of its own
+        if p:find("[\128-\255]") and not p:find("\n") then
+            batch[#batch + 1] = p
+        end
+    end
+    if #batch == 0 then return {} end
+
+    local seen, extra = {}, {}
+    for _, p in ipairs(paths) do seen[p] = true end
+    -- one spawn per direction for the whole list, rather than one per path: a
+    -- 600-file folder of Turkish titles would otherwise mean 1200 of them
+    for _, form in ipairs({ { "UTF-8", "UTF-8-MAC" }, { "UTF-8-MAC", "UTF-8" } }) do
+        local r = mp.command_native({
+            name = "subprocess", playback_only = false, capture_stdout = true,
+            -- -c drops an undecodable byte instead of failing the whole batch;
+            -- the mangled line is then just a path that hashes to nothing, and
+            -- deleting a watch_later entry that was never there is a no-op
+            args = { "iconv", "-c", "-f", form[1], "-t", form[2] },
+            stdin_data = table.concat(batch, "\n") .. "\n",
+        })
+        if r and r.status == 0 and r.stdout then
+            for line in r.stdout:gmatch("[^\n]+") do
+                if not seen[line] then
+                    seen[line] = true
+                    extra[#extra + 1] = line
+                end
+            end
+        end
+    end
+    return extra
+end
+
 -- 3. delete, and report how many saved positions actually disappeared
 --
 -- delete-watch-later-config succeeds whether or not the file existed, so the
@@ -153,6 +209,10 @@ local function wipe(paths)
     local dir = wl_dir()
     local before = positions(dir)
     for _, p in ipairs(paths) do
+        mp.commandv("delete-watch-later-config", p)
+    end
+    -- and the same files under their other Unicode spelling (see above)
+    for _, p in ipairs(alt_spellings(paths)) do
         mp.commandv("delete-watch-later-config", p)
     end
     local after = positions(dir)

@@ -320,6 +320,10 @@
         <div class="what"><b>Zoom to fill.</b> A wide film normally sits between two black bands. This crops them away so the picture fills the screen — at the cost of losing a strip off each side. Press again to go back</div>
       </div>
       <div class="row">
+        <div><kbd>y</kbd></div>
+        <div class="what"><b>Sharper picture.</b> Cartoons and anime are cleaned up while they play — the lines come back crisp instead of soft, because a 1080p video is being stretched a long way to fill this screen. It decides on its own which videos get it: animated shows do, live action does not. This key overrules that decision — one press forces it on for whatever you are watching, the next turns it off, the third hands the choice back. The message says which of the three you have landed on. <b>It never alters the video file</b>, only what reaches the screen, so switching it off puts the picture back exactly as it was</div>
+      </div>
+      <div class="row">
         <div><kbd>Shift</kbd><span class="plus">+</span><kbd>I</kbd></div>
         <div class="what">Playback statistics, if you ever suspect stutter. This was on plain <kbd>i</kbd> until Show in Finder took that key; mpv offers the page on both, and this one stays up until you press it again</div>
       </div>
@@ -368,6 +372,7 @@
     <ul class="plain">
       <li><span><b>Hardware decoding.</b> Playback runs on the Mac's dedicated video decoder rather than the CPU — measured 19.6% → 4.9% CPU on 1080p. Quieter, cooler, longer battery, and the picture is identical.</span></li>
       <li><span><b>High-quality upscaling.</b> A sharper scaler for 720p and 1080p on a Retina screen. This one costs GPU, and it's the deliberate trade for a better picture.</span></li>
+      <li><span><b>Extra sharpening for animation.</b> On top of that, animated shows go through Anime4K, which redraws the line art rather than merely enlarging it — <kbd>y</kbd> in section 05 is the switch. On this Mac it is effectively free: with the picture at full screen size, not one frame was dropped, even running at four times normal speed. Live action is left out on purpose, because the same treatment makes real skin look waxy.</span></li>
       <li><span><b>One window, always.</b> Selecting a whole folder and opening it can't spawn a second player — the launcher takes a lock so only one instance is ever created.</span></li>
       <li><span><b>Thumbnails for MKV and WebM</b>, via QuickLook Video. macOS can't preview those formats on its own.</span></li>
     </ul>
@@ -385,7 +390,9 @@
           <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
           <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page, and a note for the one bound elsewhere</td></tr>
           <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
-          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, audio-language choosing, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, audio-language choosing, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip, sharpening animation</td></tr>
+          <tr><td class="path">~/.config/mpv/shaders/</td><td class="desc">The Anime4K picture filters, used only on animated shows</td></tr>
+          <tr><td class="path">~/.config/mpv/script-opts/</td><td class="desc">Settings for the scripts — including which folders count as animation</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
           <tr><td class="path">/Applications/mpv.app</td><td class="desc">The wrapper Finder opens, plus the purple document icons</td></tr>
         </tbody>

@@ -19,7 +19,7 @@ with the measurement that justified it.
 | **Vertical volume bar** | Observes the `volume` *property*, so any new volume binding gets the bar for free. |
 | **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar with the time underneath. |
 | **Seek thumbnails** | Hover the bottom strip and the frame at that point appears above the pointer. mpv has none of its own, and its built-in OSC cannot drive thumbfast — usually you have to adopt uosc's whole UI to get this. Here it is one 86-line bridge. |
-| **Skip the intro without chapters** | `Cmd`+`→` runs the file at 100x behind a black frame until the audio drops below -30dB, which on a normal episode is the gap between the title sequence and the first line. Most files carry no chapter marks, so the chapter keys cannot do this. Lands within 24ms of where ffmpeg's own `silencedetect` puts the silence. |
+| **Skip the intro without chapters** | `/` runs the file at 100x behind a black frame until the audio drops below -30dB, which on a normal episode is the gap between the title sequence and the first line. Most files carry no chapter marks, so the chapter keys cannot do this. Lands within 24ms of where ffmpeg's own `silencedetect` puts the silence. |
 | **Clip export** | `Cmd`+`t` sets an in and an out point on the playing file and writes the section to the Desktop as an h264 mp4, without leaving the player. Encoding is a second headless mpv, so the clip inherits the tracks and filters you are actually watching. |
 | **Subtitles from the internet** | `b` downloads a subtitle for the playing file and switches it on — mpv's answer to VLC's VLsub, which mpv has no equivalent of out of the box. Anonymous sources only, no account anywhere. |
 | **The right subtitle, not the first one** | `sub-auto=all` loads whole `Subs/` folders — one film here offers 35 — so `c` scores them by language tag, filename and the video's own stem instead of cycling through the lot. |
@@ -33,10 +33,10 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 |---|---|
 | `Shift`+`←`/`→` | previous / next chapter |
 | `a` / `d` | 3s |
-| `Cmd`+`→` | skip the opening titles — jump to the next silence |
 | `→` / `←` | 10s forward / 6s back |
-| `Cmd`+`←` | 10s back (no forward partner — that seat is the skip above) |
-| `Option`+`←`/`→`, `PgUp`/`PgDn` | 60s |
+| `Cmd`+`→` / `Cmd`+`←` | 30s forward / 10s back |
+| `Option`+`←`/`→` | 60s (`PgUp`/`PgDn` are switched off) |
+| `/` | skip the opening titles — jump to the next silence |
 | `↑`/`↓` or `w`/`s` | volume ±5 |
 | `x` / `z` | next / previous (position-preserving) |
 | `Cmd`+`z` | shuffle on/off |
@@ -80,7 +80,7 @@ scripts/
   subtitle-fetch.lua    b → download a subtitle with the subliminal CLI
   subtitle-sync.lua     Alt+b → re-time it with the ffsubsync CLI
   global-sound.lua      one volume level for everything, not one per file
-  skiptosilence.lua     Cmd+→ → fast-forward to the next silence (detuur, MIT, patched)
+  skiptosilence.lua     / → fast-forward to the next silence (detuur, MIT, patched)
   webm.lua              Cmd+T → clip out a section (ekisu/mpv-webm, MIT, patched)
 app/
   Info.plist            UTI claims (11 video types + public.folder)

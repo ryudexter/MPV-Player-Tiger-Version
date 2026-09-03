@@ -49,7 +49,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `Cmd`+`t` | cut a clip out of what's playing and save it to the Desktop |
 | `l` | reveal the playing file in Finder |
-| `0` `0` | wipe all saved playback positions |
+| `0` `0` | reset the saved playback positions of this playlist (see trap 9) |
 
 `Space` still pauses. `Enter`, `>`, `<` and `9` are deliberately inert — they
 were easy to hit by accident and used to jump the playlist.
@@ -248,6 +248,17 @@ Things that cost real time here, all recorded in the config comments too:
   a test that passes a single file does *not* get a 1-file playlist.
 - The launcher exposes a permanent IPC socket at `/tmp/mpv-single.sock` — the
   way to inspect a live session without touching the config.
+- mpv's builtin `select.lua` menus (`Ctrl`+`p`, and the playlist selector inside
+  it) install a **forced** input section that claims every printable key for
+  their search box. While one is open, `0` is typed into the filter and never
+  reaches the watch-later reset. Close the menu first.
+- mpv **deletes** a file's `watch_later` entry the instant it resumes it
+  (v0.41 `player/loadfile.c`), so while a resumed video plays there is nothing
+  on disk for it — its position lives only in `time-pos`. Measuring a reset by
+  the folder shrinking therefore reports 0 for the very file you are watching.
+- mpv writes a `# redirect entry` for **every ancestor directory** of a file,
+  all the way to the root: one video eight levels down leaves nine files
+  behind. Counting the folder gives a count of directories, not of videos.
 - The OSC's seek bar does **not** span the window: in the default bottombar
   layout it is inset between the elapsed and remaining timecodes (x≈234..874 in
   a 1280-wide window). Mapping a pointer across the full width instead is out by

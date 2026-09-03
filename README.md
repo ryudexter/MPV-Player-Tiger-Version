@@ -22,6 +22,7 @@ with the measurement that justified it.
 | **Skip the intro without chapters** | `/` runs the file at 100x behind a black frame until the audio drops below -30dB, which on a normal episode is the gap between the title sequence and the first line. Most files carry no chapter marks, so the chapter keys cannot do this. Lands within 24ms of where ffmpeg's own `silencedetect` puts the silence. |
 | **Clip export** | `Cmd`+`t` sets an in and an out point on the playing file and writes the section to the Desktop as an h264 mp4, without leaving the player. Encoding is a second headless mpv, so the clip inherits the tracks and filters you are actually watching. |
 | **Subtitles from the internet** | `b` downloads a subtitle for the playing file and switches it on — mpv's answer to VLC's VLsub, which mpv has no equivalent of out of the box. Anonymous sources only, no account anywhere. |
+| **English audio, without asking** | A film with several soundtracks plays in English. Stock mpv takes whichever track the file flags as default — on Solo Leveling season 2 that is Japanese. `l` steps through the other languages. |
 | **The right subtitle, not the first one** | `sub-auto=all` loads whole `Subs/` folders — one film here offers 35 — so `c` scores them by language tag, filename and the video's own stem instead of cycling through the lot. |
 | **No hairline** | macOS strokes a 1pt, 20%-white edge on every window, visible in fullscreen over dark video. `native-fs=yes` removes the window, and with it the stroke. |
 
@@ -40,6 +41,8 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `↑`/`↓` or `w`/`s` | volume ±5 |
 | `x` / `z` | next / previous (position-preserving) |
 | `Cmd`+`z` | shuffle on/off |
+| `l` | audio language: English → the film's other languages → round again |
+| `Alt`+`l` | choose a specific audio track from a searchable list |
 | `c` / `v` | subtitles: English → Turkish → off / subtitles off outright |
 | `Alt`+`c` | choose a subtitle track from a searchable list |
 | `Shift`+`c` / `Shift`+`x` | subtitle timing ±100ms |
@@ -48,7 +51,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `g` | zoom to fill ↔ original aspect |
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `Cmd`+`t` | cut a clip out of what's playing and save it to the Desktop |
-| `l` | reveal the playing file in Finder |
+| `i` | reveal the playing file in Finder |
 | `0` `0` | reset the saved playback positions of this playlist (see trap 9) |
 
 `Space` still pauses. `Enter`, `>`, `<` and `9` are deliberately inert — they
@@ -73,9 +76,10 @@ scripts/
   vertical-volume.lua   vertical volume bar
   mouse-progress.lua    seek bar on mouse move, time readout at the bottom
   osc-idle-hide.lua     hides the control bar and cursor after 2s of stillness
-  reveal-in-finder.lua  l → open -R
+  reveal-in-finder.lua  i → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
   trash-file.lua        Cmd+Delete → /usr/bin/trash, playback untouched
+  audio-pick.lua        English soundtrack by default; l → next language
   subtitle-pick.lua     c → score every sub track and pick the best English one
   subtitle-fetch.lua    b → download a subtitle with the subliminal CLI
   subtitle-sync.lua     Alt+b → re-time it with the ffsubsync CLI
@@ -133,6 +137,50 @@ That takes out both scripts, the config, and the idle-timeout change together,
 leaving the setup exactly as it was. Then quit mpv fully (`Cmd`+`Q`) — the
 launcher keeps one long-lived instance, so scripts are only re-read on a real
 restart.
+
+## Audio languages
+
+A film with an English soundtrack and a Turkish one, or an anime with an English
+dub and the Japanese original, comes up **in English**. `l` switches.
+
+| | |
+|---|---|
+| *(nothing)* | English plays by default. |
+| `l` | next language, and the message says what the press after that will give. |
+| `Alt`+`l` | pick a specific track — the second English mix, or a commentary. |
+
+Stock mpv has no preference of its own: it plays whichever track the file flags
+as default, whatever language that happens to be. On Solo Leveling season 2 —
+Japanese first, English second, neither flagged — that means Japanese, every
+episode. `mpv.conf` now sets `alang=en`, which mpv applies inside its own track
+selection, so the right track is chosen before the audio decoder is even created
+and nothing switches once playback has started. One code is enough: mpv
+normalises language tags through its own ISO 639 table, so `en` matches `eng`
+and `en-US` too.
+
+`scripts/audio-pick.lua` covers the two cases a language list cannot reach:
+
+- **A track with no language tag.** A soundtrack titled "English AC3 5.1" and
+  tagged with nothing at all is invisible to `alang`, so mpv falls back to the
+  default-flagged track — the Turkish one. The script reads the title. This is
+  the same shape as the subtitle problem below, where a bare `English.srt`
+  carries no tag either.
+- **An English commentary listed first.** With `eng`/`eng`/`tur` and the
+  director's commentary flagged default, `alang=en` is satisfied by the
+  commentary and stops there. The script scores tracks within a language and
+  pushes commentary, audio description and karaoke tracks to the bottom.
+
+**`l` steps through languages, not tracks.** A film with an English 5.1 mix, an
+English stereo mix and a Turkish dub is two presses round, not three. When a
+file has only one language but several tracks in it, `l` steps through those
+tracks instead, so the key is never dead — and `Alt`+`l` (or mpv's own `#`,
+left live) reaches any single track directly.
+
+> Verified 2026-09-03 over IPC across all 25 Solo Leveling episodes: the 13
+> season 2 files open in English and `l` gives Japanese and back; the 12 season
+> 1 files have one English track each. Plus six synthetic shapes — tagged,
+> untagged, title-only, two-English-plus-commentary, no-English-at-all and
+> silent — for the cases the library does not happen to contain.
 
 ## Subtitles
 
@@ -241,6 +289,12 @@ Things that cost real time here, all recorded in the config comments too:
 - `script-opts=` assigns the whole list; a second one would drop the ytdl_hook
   path. Always `script-opts-append=`.
 - `osd-msg3` must be a single space to blank it — empty means "use the default".
+- Only **three** single keys were ever unbound: `h`, `k`, `y`. `e j o r t u`
+  all look free in `input.conf` but are live mpv builtins. `i` was one of them
+  (the stats overlay) until reveal-in-finder took it; stats survive on `Shift`+`I`.
+- A track list appearing is not the same as a track being *selected*. Polling
+  `track-list` and reading `current-tracks/audio` straight after gave one false
+  failure in 25 — poll for the selection itself.
 - The launcher keeps one long-lived mpv, so a `mpv.conf` change needs a full
   `Cmd`+`Q`, not just closing the window. A config change that "didn't work" may
   simply never have been loaded.

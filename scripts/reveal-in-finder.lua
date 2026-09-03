@@ -1,4 +1,6 @@
--- Reveal the playing file in Finder, bound to l.
+-- Reveal the playing file in Finder, bound to i.
+--
+-- Was on l until 2026-09-03, when l became the audio-language key.
 --
 -- `open -R` opens the file's enclosing folder in a Finder window with the file
 -- already selected - the same state you would get by clicking it there.

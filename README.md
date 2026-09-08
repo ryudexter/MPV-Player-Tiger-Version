@@ -68,7 +68,7 @@ mpv-open              single-instance launcher (Python)
 field-guide.html      illustrated guide to the whole setup
 shaders/              Anime4K v4.0.1, Mode A (HQ) only — 6 of the 39 files (MIT)
 script-opts/
-  video-quality.conf    which folders count as animation
+  video-quality.conf    which folders count as animation, and the battery preset
   thumbfast.conf        preview size, idle shutdown, absolute mpv path
   skiptosilence.conf    silence threshold, minimum length, mute while skipping
   webm.conf             mp4 output, quality, Desktop output dir, absolute mpv path
@@ -165,7 +165,8 @@ anime shaders on real footage make skin look waxy and put halos on edges.
 |---|---|
 
 Use **always on** for an animated film that is not in the list yet, and **off**
-to compare the same frame with and without.
+to compare the same frame with and without. `auto` is the startup state and is
+**not** remembered across runs — close mpv and it is back to auto.
 
 **Adding a new show** is one line — append it to `animation_paths` in
 `script-opts/video-quality.conf`, semicolon-separated. It is matched as plain
@@ -174,11 +175,36 @@ Watch the `=`: mpv silently ignores `key = value` with spaces around it.
 
 Only Mode A (HQ) is kept — 6 of the release's 39 shaders, 340K instead of
 2.3MB. To try Mode B or C, fetch the [v4.0.1 zip][a4k] again and swap the
-`SHADERS` list in `scripts/video-quality.lua`.
+`CHAINS` lists in `scripts/video-quality.lua`.
 
-There is no "light" preset because there is nothing to save: measured at
-3456x2168 fullscreen, every preset up to Mode A *ultra* ran with **zero dropped
-and zero delayed frames, even at 4x playback speed**.
+### On battery it steps down by itself
+
+An earlier note here said there was no "light" preset because there was nothing
+to save. That measurement had been taken plugged in. Unplugged, this machine
+does **not** have the GPU headroom for the full chain, so the preset now follows
+the power cable — no key to press:
+
+| power | preset | shaders |
+|---|---|---|
+| AC | full — Mode A (HQ), exactly as before | 6 |
+| battery | light — Mode A with the Restore stage dropped | 5 |
+
+Measured on battery at 3456x2168 fullscreen, 1080p HEVC, one run split by stage:
+
+| | passes | ms/frame | vs the 8.33 ms budget of a 120 Hz panel |
+|---|---|---|---|
+| full chain | 42 | 11.25 | **135% — display sync drops out, ~45% of frames discarded** |
+| light chain | 25 | **2.20** | **26% — fits with room to spare** |
+| of which `Restore_CNN_VL` | 17 | 9.05 | **80.5% of the full chain's cost** |
+
+That last row is the whole reason the light preset is worth having. Dropping
+Restore gives up line-art restoration on soft sources; it keeps the 2x CNN
+upscale, which is the part you actually see on a Retina panel.
+
+It switches live: unplug mid-episode and the picture steps down within
+`power_poll_seconds` (30 by default), announced by a one-line OSD — an
+unexplained softer frame otherwise reads as a bug. `power_aware=no` in
+`script-opts/video-quality.conf` pins it to the full chain.
 
 [a4k]: https://github.com/bloc97/Anime4K
 

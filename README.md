@@ -204,6 +204,11 @@ real CNN upscale. A middle option — Mode A with only the Restore stage removed
 keeping the VL upscale — was measured at **11.8%** (85 fps) and rejected: it is
 the VL *upscale*, not Restore, that this machine cannot afford unplugged.
 
+**On AC the full chain is fine**, measured the same way: **0.00% dropped at
+120 fps**, in the rounds whose no-shader baseline was also 0.00%. This really is
+a battery ceiling and not a general one — unplugged, `full` sat at 42–46% in
+every sample; plugged in, it hits exactly zero.
+
 Two traps, both of which caught an earlier version of this section:
 
 - **Per-stage `vo-passes` timings lie.** The same Restore stage measured 9.05 ms
@@ -215,6 +220,12 @@ Two traps, both of which caught an earlier version of this section:
 - **Only measure while mpv has focus.** Unfocused, macOS stops compositing it:
   playback carries on but the drop counters freeze, and every chain reads a
   flawless 0.0% — indistinguishable from success.
+- **Gate every round on a no-shader baseline, before and after.** With zero
+  shaders loaded the drop rate must be ~0; anything higher means something else
+  on the machine is taking the display pipeline, and every number in that round
+  is measuring that instead. A busy browser tab produced a 24% baseline and,
+  with it, a completely fictitious 42.6% for the full chain on AC. Five rounds
+  out of eight were thrown out this way on an otherwise idle-looking machine.
 
 It switches live: unplug mid-episode and the picture steps down within
 `power_poll_seconds` (30 by default), announced by a one-line OSD — an

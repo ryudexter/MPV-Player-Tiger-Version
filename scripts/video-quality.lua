@@ -37,6 +37,13 @@
 -- *upscale*, not Restore, that this machine cannot afford unplugged - which is
 -- the opposite of what the first attempt at this concluded.
 --
+-- ON AC the full chain is genuinely fine, verified 2026-09-08 the same way:
+-- 0.00% dropped at 120 fps in the rounds whose no-shader baseline was also
+-- 0.00%. So this really is a battery ceiling, not a general one - on battery
+-- `full` sat at 42-46% in every single sample, on AC it hits exactly zero.
+-- (A mid-investigation reading of 42.6% on AC was contamination, not a real
+-- result: its no-shader baseline dropped 24% in the same round.)
+--
 -- WARNING, two ways this went wrong before:
 --  1. DO NOT re-derive any of this from per-stage `vo-passes` timings. They
 --     lie. The same Restore stage measured 9.05 ms in one run and 0.00 ms in

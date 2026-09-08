@@ -187,21 +187,22 @@ the power cable — no key to press:
 | power | preset | shaders |
 |---|---|---|
 | AC | full — Mode A (HQ), exactly as before | 6 |
-| battery | light — Mode A with the Restore stage dropped | 5 |
+| battery | light — Clamp + the `x2_M` upscale + downscale | 4 |
 
-Measured on battery at 3456x2168 fullscreen, 1080p HEVC — one run with the
-chains swapped over the IPC socket, so the conditions are identical:
+Measured on battery at 3456x2168 fullscreen, 1080p HEVC — three focus-gated
+12-second samples per chain in one run, chains swapped over the IPC socket, so
+the conditions are identical:
 
-| chain | frames dropped | display rate |
-|---|---|---|
-| full — Mode A (HQ) | **~45%** | ~60 fps |
-| light — Restore dropped | **~6–14%** | 87–106 fps |
-| shaders off | **0%** | 120 fps |
+| chain | frames dropped | display rate | per-sample spread |
+|---|---|---|---|
+| full — Mode A (HQ) | **43.9%** | 60 fps | 43.1 / 42.1 / 46.4 |
+| **light — `x2_M` upscale** | **0.5%** | **119 fps** | 0.0 / 1.4 / 0.0 |
+| shaders off | ~0% | 120 fps | — |
 
-So `light` cuts the damage by roughly three quarters but does **not** eliminate
-it — only switching the shaders off does that. It is the better of the two
-presets while unplugged, not a clean fix: if you want no dropped frames at all
-on battery, `y` to **off** is the honest answer.
+So `light` is within noise of running no shaders at all, while still doing a
+real CNN upscale. A middle option — Mode A with only the Restore stage removed,
+keeping the VL upscale — was measured at **11.8%** (85 fps) and rejected: it is
+the VL *upscale*, not Restore, that this machine cannot afford unplugged.
 
 Two traps, both of which caught an earlier version of this section:
 

@@ -22,14 +22,20 @@
 -- TWO PRESETS, chosen by the power cable (see `power_aware` below). Superseding
 -- an earlier note here that claimed there was nothing to save: that measurement
 -- was taken plugged in. On battery an M3 Max does NOT have the GPU headroom for
--- the full preset. Measured 2026-09-08, fullscreen 3456x2168, 1080p HEVC, in one
--- run with the chains swapped over the IPC socket so conditions are identical:
---   full   Mode A (HQ)            ~45% of frames dropped,  display rate ~60 fps
---   light  Mode A minus Restore   ~6-14% dropped,          display rate 87-106
---   off    no shaders at all         0% dropped,           display rate 120
--- So `light` cuts the damage by roughly three quarters but does NOT eliminate
--- it. It is the better of the two presets while unplugged, not a clean fix - if
--- you want no dropped frames at all on battery, `y` to off is the honest answer.
+-- the full preset. Measured 2026-09-08 on battery, fullscreen 3456x2168, 1080p
+-- HEVC - three focus-gated 12 s samples per chain in a single run, chains
+-- swapped over the IPC socket, counting frame-drop-count against wall clock:
+--   full   Mode A (HQ)                43.9% of frames dropped,   60 fps
+--   light  Clamp + x2_M + downscale    0.5% dropped,            119 fps
+--   off    no shaders at all            ~0% dropped,            120 fps
+-- Per-sample spread was tight - light 0.0/1.4/0.0, full 43.1/42.1/46.4 - so
+-- `light` is within noise of running no shaders at all while still doing a real
+-- CNN upscale. Built from the six files already vendored; nothing downloaded.
+--
+-- A third option was measured and REJECTED: Mode A with only the Restore stage
+-- removed, keeping the VL upscale, still dropped 11.8% (85 fps). It is the VL
+-- *upscale*, not Restore, that this machine cannot afford unplugged - which is
+-- the opposite of what the first attempt at this concluded.
 --
 -- WARNING, two ways this went wrong before:
 --  1. DO NOT re-derive any of this from per-stage `vo-passes` timings. They
@@ -64,9 +70,11 @@ local o = {
 options.read_options(o, "video-quality")
 
 -- Anime4K v4.0.1 "Mode A (HQ)", the preset upstream recommends for 1080p anime
--- that is slightly soft: it restores the line art, then upscales it. `light` is
--- the same chain with the Restore stage removed. The order of these lists
--- matters - each shader feeds the next.
+-- that is slightly soft: it restores the line art, then upscales it. `light`
+-- drops both the Restore stage and the VL upscale, keeping the M upscale, which
+-- is the one this machine can afford on battery. The order of these lists
+-- matters - each shader feeds the next, and `light` is in the exact order the
+-- 0.5% measurement above was taken in.
 local CHAINS = {
     full = {
         "Anime4K_Clamp_Highlights.glsl",
@@ -78,10 +86,9 @@ local CHAINS = {
     },
     light = {
         "Anime4K_Clamp_Highlights.glsl",
-        "Anime4K_Upscale_CNN_x2_VL.glsl",
+        "Anime4K_Upscale_CNN_x2_M.glsl",
         "Anime4K_AutoDownscalePre_x2.glsl",
         "Anime4K_AutoDownscalePre_x4.glsl",
-        "Anime4K_Upscale_CNN_x2_M.glsl",
     },
 }
 

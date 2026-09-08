@@ -189,17 +189,31 @@ the power cable — no key to press:
 | AC | full — Mode A (HQ), exactly as before | 6 |
 | battery | light — Mode A with the Restore stage dropped | 5 |
 
-Measured on battery at 3456x2168 fullscreen, 1080p HEVC, one run split by stage:
+Measured on battery at 3456x2168 fullscreen, 1080p HEVC — one run with the
+chains swapped over the IPC socket, so the conditions are identical:
 
-| | passes | ms/frame | vs the 8.33 ms budget of a 120 Hz panel |
-|---|---|---|---|
-| full chain | 42 | 11.25 | **135% — display sync drops out, ~45% of frames discarded** |
-| light chain | 25 | **2.20** | **26% — fits with room to spare** |
-| of which `Restore_CNN_VL` | 17 | 9.05 | **80.5% of the full chain's cost** |
+| chain | frames dropped | display rate |
+|---|---|---|
+| full — Mode A (HQ) | **~45%** | ~60 fps |
+| light — Restore dropped | **~6–14%** | 87–106 fps |
+| shaders off | **0%** | 120 fps |
 
-That last row is the whole reason the light preset is worth having. Dropping
-Restore gives up line-art restoration on soft sources; it keeps the 2x CNN
-upscale, which is the part you actually see on a Retina panel.
+So `light` cuts the damage by roughly three quarters but does **not** eliminate
+it — only switching the shaders off does that. It is the better of the two
+presets while unplugged, not a clean fix: if you want no dropped frames at all
+on battery, `y` to **off** is the honest answer.
+
+Two traps, both of which caught an earlier version of this section:
+
+- **Per-stage `vo-passes` timings lie.** The same Restore stage measured 9.05 ms
+  in one run and 0.00 ms in another, and one chain's pass-sum drifted from
+  29.45 ms to 11.40 ms minutes apart within a single run — the GPU timer charges
+  the cost to whichever pass absorbs the pipeline stall. This section once
+  claimed Restore was 80.5% of the frame on that basis, and the light chain was
+  picked to match. Use `frame-drop-count` against wall-clock instead.
+- **Only measure while mpv has focus.** Unfocused, macOS stops compositing it:
+  playback carries on but the drop counters freeze, and every chain reads a
+  flawless 0.0% — indistinguishable from success.
 
 It switches live: unplug mid-episode and the picture steps down within
 `power_poll_seconds` (30 by default), announced by a one-line OSD — an

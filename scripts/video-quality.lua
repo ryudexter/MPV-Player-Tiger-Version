@@ -22,17 +22,26 @@
 -- TWO PRESETS, chosen by the power cable (see `power_aware` below). Superseding
 -- an earlier note here that claimed there was nothing to save: that measurement
 -- was taken plugged in. On battery an M3 Max does NOT have the GPU headroom for
--- the full preset - measured 2026-09-08 at 3456x2168 fullscreen, 1080p HEVC:
---   full preset   42 render passes, ~11.2 ms/frame vs an 8.3 ms budget at 120 Hz
---                 -> display sync drops out and mpv discards ~45% of frames
--- Unplugged we therefore drop the Restore stage and keep the CNN upscale that
--- does the visible sharpening. The pass timings say why - same run, split by
--- stage, so these are battery numbers, not extrapolated ones:
---   Restore (VL)          17 passes   9.05 ms   80.5% of the frame
---   everything else        25 passes   2.20 ms   19.5%
--- so the light preset costs 2.20 ms, 26% of the budget, and fits easily. What
--- it gives up is line-art restoration on soft sources; the 2x CNN upscale, the
--- part you actually see on a Retina panel, is untouched.
+-- the full preset. Measured 2026-09-08, fullscreen 3456x2168, 1080p HEVC, in one
+-- run with the chains swapped over the IPC socket so conditions are identical:
+--   full   Mode A (HQ)            ~45% of frames dropped,  display rate ~60 fps
+--   light  Mode A minus Restore   ~6-14% dropped,          display rate 87-106
+--   off    no shaders at all         0% dropped,           display rate 120
+-- So `light` cuts the damage by roughly three quarters but does NOT eliminate
+-- it. It is the better of the two presets while unplugged, not a clean fix - if
+-- you want no dropped frames at all on battery, `y` to off is the honest answer.
+--
+-- WARNING, two ways this went wrong before:
+--  1. DO NOT re-derive any of this from per-stage `vo-passes` timings. They
+--     lie. The same Restore stage measured 9.05 ms in one run and 0.00 ms in
+--     another, and one chain's pass-sum drifted 29.45 -> 11.40 ms minutes apart
+--     inside a single run: the GPU timer charges the cost to whichever pass
+--     absorbs the pipeline stall. An earlier version of this comment blamed
+--     Restore for 80.5% of the frame on that basis and chose the light chain
+--     accordingly. Use `frame-drop-count` against wall-clock instead.
+--  2. Only measure while mpv HAS FOCUS. Unfocused, macOS stops compositing it:
+--     playback carries on, but the drop counters freeze and every chain reads a
+--     flawless 0.0% - indistinguishable from success.
 
 local msg     = require "mp.msg"
 local options = require "mp.options"

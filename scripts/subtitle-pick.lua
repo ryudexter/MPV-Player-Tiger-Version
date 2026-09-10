@@ -14,9 +14,18 @@
 -- so slang=eng would never have found it. Hence the scoring below, which reads
 -- the filename as well as the tag.
 --
--- c steps through the languages the film actually has and then switches off:
--- English, Turkish, off. A film with only one of them is just on, off. Alt+c
--- opens mpv's own searchable track list for anything else.
+-- c steps through every English and then every Turkish track the film actually
+-- has, and then switches off. A film with one of each is English, Turkish, off;
+-- one with two English tracks is both of them, then off. Alt+c opens mpv's own
+-- searchable track list for anything else.
+--
+-- It used to offer only the BEST track per language, which broke on a release
+-- that ships two of one language. Attack on Titan carries "Signs & Songs" and
+-- "Full Subtitles", both embedded and both tagged eng: c landed on the signs
+-- track, which titles on-screen text and songs but not a word of the dialogue,
+-- and pressing c again went straight to off rather than to the track that
+-- actually works. Both halves of that are fixed here - the scoring sinks a
+-- signs-only track below a full one, and the cycle now walks all of them.
 
 local function label(t)
     if t.title and t.title ~= "" then return t.title end
@@ -36,13 +45,22 @@ end
 -- perfectly readable when no English one exists; scripts/subtitle-fetch.lua
 -- downloads both for the same reason. mpv reports language tags as either a
 -- bare code or a locale ("en", "en-US", "tr-TR"), so these match on the front.
+--
+-- BOTH ISO 639 spellings are listed, because a prefix test on the two-letter
+-- code does not reach the three-letter one for every language. English is
+-- lucky - "eng" starts with "en" - but Turkish is "tur", which does not start
+-- with "tr", so a Subs/ folder holding "tur.srt" scored as no language at all
+-- and c walked straight past it. Found 2026-09-10 on Project Hail Mary, whose
+-- 35 subtitle files include exactly that name.
+--
 -- The Turkish words are matched as plain bytes and Lua's :lower() only folds
 -- ASCII, so "TURKCE" folds to "turkce" but "TÜRKÇE" keeps its uppercase Ü -
 -- hence both byte spellings of the ü. "turk" is the stem of Turkish, Turkce
 -- and Turkiye alike, so one entry covers the lot.
 local WANTED = {
-    { code = "en", name = "English", score = 1000, words = { "english" } },
-    { code = "tr", name = "Turkish", score =  500,
+    { codes = { "en" },        name = "English", score = 1000,
+      words = { "english" } },
+    { codes = { "tr", "tur" }, name = "Turkish", score =  500,
       words = { "turk", "t\195\188rk", "t\195\156rk" } },
 }
 
@@ -60,6 +78,10 @@ local function score(t, stem)
     local lang  = (t.lang or ""):lower()
     local fn    = t["external-filename"]
     local text  = ((t.title or "") .. " " .. (fn or "")):lower()
+    -- the external file's name without its path or extension, which is both
+    -- the tie-breaker further down and, for a file called nothing but a
+    -- language code, the only language signal there is
+    local base  = fn and fn:gsub(".*/", ""):gsub("%.[^.]*$", "") or nil
     -- Language decides first, everything else only sorts within a language.
     -- English is preferred and Turkish is the fallback, and the two bands are
     -- 500 apart - wider than every other signal here added together - so no
@@ -73,7 +95,17 @@ local function score(t, stem)
     -- still outrank a Turkish track that has both.
     local band                        -- which WANTED entry this track is
     for i, w in ipairs(WANTED) do
-        local by_tag  = lang:match("^" .. w.code)
+        -- mpv only reads a language out of a name shaped "<stem>.<code>.srt",
+        -- so "SDH.eng.HI.srt" arrives tagged eng but a file called plainly
+        -- "tur.srt" arrives with no tag at all. Comparing the whole stem to
+        -- the code catches those. It has to be an EXACT match, not a
+        -- substring: "tur" inside a title like "Return" or "Saturday" would
+        -- otherwise make an English subtitle Turkish.
+        local by_tag = false
+        for _, c in ipairs(w.codes) do
+            if lang:match("^" .. c) then by_tag = true end
+            if base and base:lower() == c then by_tag = true end
+        end
         local by_name = false
         for _, word in ipairs(w.words) do
             if text:find(word, 1, true) then by_name = true end
@@ -88,7 +120,6 @@ local function score(t, stem)
     if not fn then
         s = s + 50            -- embedded: belongs to this file by definition
     else
-        local base = fn:gsub(".*/", ""):gsub("%.[^.]*$", "")
         if base == stem then s = s + 50
         elseif stem ~= "" and base:find(stem, 1, true) then s = s + 40 end
     end
@@ -99,32 +130,91 @@ local function score(t, stem)
     end
     -- forced tracks only translate the odd foreign line, not the dialogue
     if t.forced or text:match("forced") then s = s - 40 end
+    -- "Signs & Songs" tracks caption on-screen text and song lyrics and leave
+    -- the dialogue alone - the same kind of partial track as a forced one, and
+    -- just as wrong to land on by default. Two releases here ship one:
+    -- Attack on Titan's is embedded beside "Full Subtitles" and scored
+    -- IDENTICALLY (1050 each: same language, both embedded, neither flagged),
+    -- so the tie broke on track order and the signs track won - subtitles on,
+    -- nothing on screen while people talk. Solo Leveling has the same shape,
+    -- "English Signs" embedded against the full dialogue in a sidecar .srt,
+    -- where the embedded track's +50 made it win by 25.
+    -- -50 clears both of those. Word-bounded so a title like "Designs" or a
+    -- film called "Songbird" cannot trip it.
+    if text:match("%f[%a]signs?%f[%A]") or text:match("%f[%a]songs?%f[%A]") then
+        s = s - 50
+    end
     if t.default then s = s + 5 end
     return s, band
 end
 
--- The best track for each wanted language, in preference order, plus the best
--- track overall. A film usually offers one of these languages, sometimes both,
--- occasionally neither (a German-only release), and c has to behave sensibly
--- in all three cases.
-local function best_tracks()
+-- How many tracks of ONE language c will walk before moving on to the next.
+-- Only a guard against a pathological release: with the belongs() filter below
+-- the real counts in this library are 1 or 2 (measured over all 458 videos:
+-- 202 files have no English track, 191 have one, 53 have two, and the twelve
+-- Solo Leveling season-1 episodes see thirteen only because mpv loads every
+-- .srt in the folder - twelve of those are other episodes and belongs() drops
+-- them). Anything past the cap is still reachable with Alt+c.
+local MAX_PER_LANG = 5
+
+-- Is this track this file's, or another episode's? An embedded track is by
+-- definition; an external one only if its name matches the video's.
+--
+-- It matters because mpv.conf sets sub-auto=all, so opening one episode loads
+-- every subtitle in the folder. Solo Leveling's season 1 folder holds 12 videos
+-- and 12 sidecar .srt files whose names all contain "English" (from
+-- "[English Dub]"), so on language alone one episode offers thirteen English
+-- tracks and twelve of them are the wrong episode's dialogue.
+--
+-- Only used to FILTER, never to reject outright: a Subs/ folder full of bare
+-- language names ("English.srt", "tur.srt" - Project Hail Mary ships 35 of
+-- them) matches no stem at all, and those are the only subtitles that release
+-- has. So the filter applies when it leaves something, and stands down when it
+-- would leave nothing.
+local function belongs(t, stem)
+    local fn = t["external-filename"]
+    if not fn then return true end
+    local base = fn:gsub(".*/", ""):gsub("%.[^.]*$", "")
+    return base == stem or (stem ~= "" and base:find(stem, 1, true) ~= nil)
+end
+
+-- Every track c will step through, in order: all the English ones best first,
+-- then all the Turkish ones, then (in cycle()) off. Also returns the best track
+-- overall, for a release that has neither language, and the total track count.
+local function cycle_tracks()
     local stem = video_stem()
-    local per_band, overall, overall_s = {}, nil, nil
+    local bands, overall, overall_s = {}, nil, nil
     local n = 0
     for _, t in ipairs(mp.get_property_native("track-list") or {}) do
         if t.type == "sub" then
             n = n + 1
             local sc, band = score(t, stem)
-            if band and (not per_band[band] or sc > per_band[band].score) then
-                per_band[band] = { track = t, score = sc }
+            if band then
+                bands[band] = bands[band] or {}
+                table.insert(bands[band],
+                    { track = t, score = sc, own = belongs(t, stem) })
             end
             if not overall_s or sc > overall_s then overall, overall_s = t, sc end
         end
     end
     local ordered = {}
     for i, w in ipairs(WANTED) do
-        if per_band[i] then
-            ordered[#ordered + 1] = { track = per_band[i].track, name = w.name }
+        local list = bands[i]
+        if list then
+            local own = {}
+            for _, e in ipairs(list) do
+                if e.own then own[#own + 1] = e end
+            end
+            if #own > 0 then list = own end
+            -- best first; ties break on track order so the walk is stable and
+            -- always matches the order the file lists them in
+            table.sort(list, function(a, b)
+                if a.score ~= b.score then return a.score > b.score end
+                return a.track.id < b.track.id
+            end)
+            for k = 1, math.min(#list, MAX_PER_LANG) do
+                ordered[#ordered + 1] = { track = list[k].track, name = w.name }
+            end
         end
     end
     return ordered, overall, n
@@ -143,14 +233,29 @@ local function off()
     mp.osd_message("Subtitles off", 1.5)
 end
 
--- c steps through the languages this film actually has, then switches off:
--- English, Turkish, off. A film with only one of them is simply on, off.
+-- What the OSD promises the next press will give. Naming the language is the
+-- useful thing when the next step changes language, but useless when it does
+-- not - "c again for English" while English is already on screen says nothing
+-- about which of the two English tracks is coming - so name the track instead.
+local function next_hint(after, cur_name, n)
+    if not after then
+        return n > 1 and "c again to switch off" or nil
+    end
+    if after.name == cur_name then
+        return "c again for " .. label(after.track)
+    end
+    return "c again for " .. after.name
+end
+
+-- c steps through every English track, then every Turkish one, then switches
+-- off. A film with one of each is English, Turkish, off; one with two English
+-- tracks gives both before off.
 --
 -- The step is worked out from WHAT IS SELECTED, never from a counter, so it
 -- still behaves after v, after choosing something by hand with Alt+c, or after
 -- moving to another file - a counter would drift out of step with the screen.
 local function cycle()
-    local ordered, overall, n = best_tracks()
+    local ordered, overall, n = cycle_tracks()
 
     local cur = mp.get_property_number("current-tracks/sub/id")
     local on  = mp.get_property_bool("sub-visibility") and cur ~= nil
@@ -177,20 +282,17 @@ local function cycle()
     local step = ordered[nxt]
     if not step then off(); return end
 
-    local after = ordered[nxt + 1]
-    show(step.track, step.name,
-         after and ("c again for " .. after.name)
-                or (n > 1 and "c again to switch off" or nil))
+    show(step.track, step.name, next_hint(ordered[nxt + 1], step.name, n))
 end
 
 -- Used by scripts/subtitle-fetch.lua after a download: the best track outright,
 -- no cycling, and it must never switch subtitles off - they have just been
 -- asked for.
 local function select_best()
-    local ordered, overall, n = best_tracks()
+    local ordered, overall, n = cycle_tracks()
     local first = ordered[1]
     if first then
-        show(first.track, first.name, ordered[2] and ("c again for " .. ordered[2].name) or nil)
+        show(first.track, first.name, next_hint(ordered[2], first.name, n))
     elseif overall then
         show(overall, nil, n > 1 and "Alt+c to choose" or nil)
     else

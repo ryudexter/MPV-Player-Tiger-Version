@@ -44,7 +44,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `Cmd`+`z` | shuffle on/off |
 | `l` | audio language: English → the film's other languages → round again |
 | `Alt`+`l` | choose a specific audio track from a searchable list |
-| `c` / `v` | subtitles: English → Turkish → off / subtitles off outright |
+| `c` / `v` | subtitles: step through every English then Turkish track, then off / off outright |
 | `Alt`+`c` | choose a subtitle track from a searchable list |
 | `Shift`+`c` / `Shift`+`x` | subtitle timing ±100ms |
 | `b` / `Shift`+`b` | download subtitles / download again over one already there |
@@ -53,6 +53,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `y` | sharper picture: auto → always on → off (auto = on for animation only) |
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `Cmd`+`t` | cut a clip out of what's playing and save it to the Desktop |
+| `n` | even out loud and quiet passages (says on screen which way it went) |
 | `i` | reveal the playing file in Finder |
 | `0` `0` | reset the saved playback positions of this playlist (see trap 9) |
 
@@ -227,10 +228,41 @@ Two traps, both of which caught an earlier version of this section:
   with it, a completely fictitious 42.6% for the full chain on AC. Five rounds
   out of eight were thrown out this way on an otherwise idle-looking machine.
 
-It switches live: unplug mid-episode and the picture steps down within
-`power_poll_seconds` (30 by default), announced by a one-line OSD — an
-unexplained softer frame otherwise reads as a bug. `power_aware=no` in
-`script-opts/video-quality.conf` pins it to the full chain.
+It switches live, announced by a one-line OSD — an unexplained softer frame
+otherwise reads as a bug. `power_aware=no` in `script-opts/video-quality.conf`
+pins it to the full chain.
+
+### …and it stops paying for frames you cannot see
+
+Added 2026-09-10, after "the battery drains much faster on anime". This is the
+bigger of the two savings, and unlike the shader preset it applies to **every**
+video, not just animation.
+
+`mpv.conf` sets `video-sync=display-resample`, which locks playback to the
+display clock and removes a small hitch every ~8 seconds. What it costs is that
+the renderer runs at the **screen's** rate rather than the video's: this panel
+refreshes 120 times a second for a film with 24 new frames a second, so four
+out of every five trips through the scaler and the shaders redraw a frame that
+is already on screen. `video-sync=audio` feeds the same frames through the same
+scaler and the same shaders — the picture is pixel for pixel what it was — and
+simply stops paying for the repeats.
+
+Measured on Attack on Titan (1080p HEVC), fullscreen 3456x2168, mpv focused,
+three 12-second samples per cell, median GPU "Device Utilization %":
+
+| | `display-resample` | `audio` |
+|---|---|---|
+| no shaders | 33 / 37 / 37 % | **11 / 11 / 11 %** |
+| light preset | 37 / 37 / 37 % | **17 / 17 / 18.5 %** |
+
+Zero dropped frames in all twelve samples. On the battery preset that is
+**roughly half the GPU work for an identical picture** — a bigger saving than
+turning the shaders off altogether would give you.
+
+The cost is the hitch coming back: 120 / 23.976 = 5.005, so about every 8
+seconds one frame is held for an extra refresh. Smoothness on the cable,
+endurance off it. Set `battery_video_sync=` (empty) in
+`script-opts/video-quality.conf` to keep the smoothness on battery too.
 
 [a4k]: https://github.com/bloc97/Anime4K
 
@@ -284,15 +316,16 @@ Three keys, in the order you reach for them:
 
 | | |
 |---|---|
-| `c` | subtitles on. Press again for Turkish, again for off. |
+| `c` | subtitles on. Press again to step through the rest, again for off. |
 | `b` | none good enough? download one. |
 | `Alt`+`b` | downloaded one is right but late? re-time it against the film's audio. |
 | `Alt`+`c` | pick a specific track from a searchable list. |
 
-**`c` chooses, then lets you change your mind.** The first press gives you
-English, a second press Turkish, a third switches subtitles off — and the
-message on screen says what the next press will do. A film that only has one of
-the two languages is simply on, then off. `mpv.conf` sets `sub-file-paths=Subs` and
+**`c` chooses, then lets you change your mind.** The first press gives you the
+best English track there is. Each press after that moves to the next one — any
+other English tracks first, then Turkish, then off — and the message on screen
+says what the next press will do. A film with one track of one language is
+simply on, then off. `mpv.conf` sets `sub-file-paths=Subs` and
 `sub-auto=all`, because releases park their subtitles in a subfolder under names
 like `English.srt` that match nothing about the video — without it they are
 invisible. The cost is volume: Project Hail Mary went from 1 track to 36.
@@ -301,11 +334,40 @@ counter, so it stays in step after `v`, after picking something by hand with
 `Alt`+`c`, or after moving to another film.
 
 `subtitle-pick.lua` scores every track — the language in the tag or the
-filename, embedded, filename matching this video's stem, minus points for SDH
-and forced tracks — and selects the winner in one press. English and Turkish
-sit in bands 500 points apart, wider than every other signal put together, so
-an English track always wins when there is one and Turkish is the fallback;
-nothing about being embedded or default can lift one language over the other.
+filename, embedded, filename matching this video's stem, minus points for SDH,
+forced and signs-only tracks — and selects the winner in one press. English and
+Turkish sit in bands 500 points apart, wider than every other signal put
+together, so an English track always wins when there is one and Turkish is the
+fallback; nothing about being embedded or default can lift one language over
+the other.
+
+> **A release with two tracks of one language used to defeat this** (fixed
+> 2026-09-10). Attack on Titan carries "Signs & Songs" and "Full Subtitles",
+> both embedded, both tagged `eng` — and they scored *identically*, so the tie
+> broke on track order and `c` landed on the signs track, which captions
+> on-screen text and song lyrics but not one word of the dialogue. Subtitles
+> were on and nothing appeared while people talked. Pressing `c` again went
+> straight to off, because the cycle only ever held the single best track per
+> language. Both halves are fixed: a signs-only track now scores 50 below a
+> full one, and the cycle walks every track of a language before moving on.
+> Solo Leveling had the same shape, an embedded "English Signs" against the
+> full dialogue in a sidecar `.srt`, and was picking the signs track too.
+
+> **Only tracks that belong to this file are in the cycle.** With
+> `sub-auto=all`, opening one Solo Leveling episode loads all twelve `.srt`
+> files in the folder, and all twelve read as English. An external subtitle
+> only becomes a step in the cycle if its name matches the video's — unless
+> *none* of them do, which is exactly the `Subs/English.srt` case, where the
+> filter stands down rather than leaving you with nothing. Five is the cap per
+> language; `Alt`+`c` reaches anything past it.
+
+> **A subtitle named after nothing but its language code** — `tur.srt`, as
+> Project Hail Mary ships — arrives from mpv with *no* language tag at all,
+> because mpv only reads a code out of a name shaped `<stem>.<code>.srt`. Those
+> are now matched by comparing the whole filename stem against the language
+> codes, so Turkish is reachable there. It has to be an exact match on the
+> stem, never a substring: "tur" inside `Return` or `Saturday` would otherwise
+> turn an English subtitle Turkish.
 
 > The stem bonus is what stops it picking the wrong episode. A Solo Leveling
 > season folder holds 12 videos and 12 `.srt` files, and *all twelve* subtitle

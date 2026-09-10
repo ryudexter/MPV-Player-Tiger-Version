@@ -269,7 +269,7 @@
     <div class="keys">
       <div class="row">
         <div><kbd>c</kbd></div>
-        <div class="what"><b>Subtitles.</b> Off until you ask. One press turns them on in English, a second press switches to Turkish, a third turns them off — and the message on screen tells you what the next press will do. It picks the best track, not the first one: a film can carry thirty-five subtitle files, and it reads their names, their language tags and the film's own filename to find the real dialogue. A film with only one of the two languages is simply on, then off</div>
+        <div class="what"><b>Subtitles.</b> Off until you ask. One press turns them on with the best English subtitles the video has. Each press after that moves to the next one — any other English track first, then Turkish — and then off, with the message on screen telling you what the next press will do. A video with one track of one language is simply on, then off. It picks the best track, not the first one: a film can carry thirty-five subtitle files, and it reads their names, their language tags and the film's own filename to find the real dialogue. It now also ranks a <i>Signs &amp; Songs</i> track below the real subtitles — that kind of track captions on-screen text and song lyrics but not one word of the dialogue, and Attack on Titan ships one right alongside its full subtitles, which is what used to get picked</div>
       </div>
       <div class="row">
         <div><kbd>b</kbd></div>
@@ -305,7 +305,7 @@
       </div>
       <div class="row">
         <div><kbd>n</kbd></div>
-        <div class="what"><b>Even out the volume.</b> For a film where the dialogue is a whisper and the action is deafening — it lifts the quiet passages and holds the loud ones down. Press again to switch it off</div>
+        <div class="what"><b>Even out the volume.</b> For a film where the dialogue is a whisper and the action is deafening — it lifts the quiet passages and holds the loud ones down. Press again to switch it off. The screen now says which way it went: this key sits right next to the subtitle-download key, and a missed press used to change the sound with nothing at all to show for it</div>
       </div>
       <div class="row">
         <div><kbd>f</kbd></div>
@@ -373,7 +373,8 @@
       <li><span><b>Hardware decoding.</b> Playback runs on the Mac's dedicated video decoder rather than the CPU — measured 19.6% → 4.9% CPU on 1080p. Quieter, cooler, longer battery, and the picture is identical.</span></li>
       <li><span><b>High-quality upscaling.</b> A sharper scaler for 720p and 1080p on a Retina screen. This one costs GPU, and it's the deliberate trade for a better picture.</span></li>
       <li><span><b>Extra sharpening for animation.</b> On top of that, animated shows go through Anime4K, which redraws the line art rather than merely enlarging it — <kbd>y</kbd> in section 05 is the switch. Live action is left out on purpose, because the same treatment makes real skin look waxy.</span></li>
-      <li><span><b>The sharpening eases off on battery.</b> The full treatment needs more graphics power than this Mac has when it is unplugged — at full screen size it was quietly throwing away about <b>45% of the frames</b>, which is the stutter you would have seen. So it now follows the power cable: the full version while charging, and on battery a lighter one that brings it back to <b>effectively none</b> — half a frame in a hundred, which is the same as running no sharpening at all, and it still redraws the line art. It changes over within half a minute of plugging in or out, and says so on screen when it does — a picture that softens by itself should not look like a fault. An earlier version of this page called the full treatment free; that was measured plugged in.</span></li>
+      <li><span><b>The sharpening eases off on battery.</b> The full treatment needs more graphics power than this Mac has when it is unplugged — at full screen size it was quietly throwing away about <b>45% of the frames</b>, which is the stutter you would have seen. So it now follows the power cable: the full version while charging, and on battery a lighter one that brings it back to <b>effectively none</b> — half a frame in a hundred, which is the same as running no sharpening at all, and it still redraws the line art. It changes over when you next pause, jump, or start another video, and says so on screen when it does — a picture that softens by itself should not look like a fault. It deliberately does <b>not</b> check while the sound is playing: the check itself used to make the audio skip, which is heard as a thump. An earlier version of this page called the full treatment free; that was measured plugged in.</span></li>
+      <li><span><b>On battery it also stops drawing frames you cannot see.</b> This screen refreshes 120 times a second; a film has only 24 new frames a second. Keeping step with the screen rather than the film means four out of every five trips through the whole picture pipeline redraw a frame that is already on screen. On battery it keeps step with the film instead — <b>about half the graphics work, for a picture that is identical pixel for pixel</b>. The cost is a very slight hitch roughly every 8 seconds, which is the thing keeping step with the screen was there to remove. On the charger, nothing changes.</span></li>
       <li><span><b>One window, always.</b> Selecting a whole folder and opening it can't spawn a second player — the launcher takes a lock so only one instance is ever created.</span></li>
       <li><span><b>Thumbnails for MKV and WebM</b>, via QuickLook Video. macOS can't preview those formats on its own.</span></li>
     </ul>
@@ -405,7 +406,7 @@
   </section>
 
   <footer>
-    Built on mpv 0.41.0 (Homebrew) · macOS · 8 September 2026
+    Built on mpv 0.41.0 (Homebrew) · macOS · 10 September 2026
   </footer>
 
 </div>

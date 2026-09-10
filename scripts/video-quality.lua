@@ -69,10 +69,39 @@ local o = {
     -- Set to no to always use the full preset, whatever the cable is doing.
     power_aware = true,
 
-    -- How often to re-read the power source, in seconds. Only polled while the
-    -- shaders are actually in use, so an idle player costs nothing. This is
-    -- also the worst-case delay before unplugging takes effect.
+    -- Backstop interval for re-reading the power source, in seconds. It only
+    -- fires WHILE PAUSED - see the comment above refresh_power for why a timer
+    -- that fires during playback is not free. The refreshes that matter happen
+    -- on events instead: a new file, a seek, and pausing.
     power_poll_seconds = 30,
+
+    -- Frame pacing to use on battery, or "" to always keep the one mpv.conf
+    -- sets. This is the single biggest saving here, and unlike the shader
+    -- presets it applies to EVERY video, not just animation.
+    --
+    -- mpv.conf sets video-sync=display-resample so playback is locked to the
+    -- display clock, which removes a small hitch every ~8 s on 23.976 fps
+    -- content. What it costs is that the renderer runs at the DISPLAY's rate
+    -- instead of the video's: this panel refreshes 120 times a second for a
+    -- film with 24 new frames a second, so four of every five trips through
+    -- the scaler and the shaders produce a frame identical to the one already
+    -- on screen. video-sync=audio hands the same frames to the same scaler and
+    -- the same shaders - the picture is pixel-for-pixel what it was - and only
+    -- stops paying for the repeats.
+    --
+    -- Measured 2026-09-10, 1080p HEVC anime, fullscreen 3456x2168, mpv focused,
+    -- no shaders, median GPU "Device Utilization %" over 13 s samples:
+    --     video-sync=display-resample    33 / 36 / 36 %
+    --     video-sync=audio                        10 %
+    --     paused (either mode)                     0 %
+    -- For scale, on the same machine and file the shader presets measured
+    -- off 36% / light 37% / full 76-77%, so switching the pacing saves rather
+    -- more than dropping from the light preset to no shaders at all.
+    --
+    -- The cost is the hitch coming back: 120 / 23.976 = 5.005, so roughly every
+    -- 8 seconds one frame is held for an extra refresh. That is the trade -
+    -- smoothness on the cable, endurance off it.
+    battery_video_sync = "audio",
 }
 options.read_options(o, "video-quality")
 
@@ -136,6 +165,12 @@ local on_ac = true
 -- the shaders, which is a visible hitch.
 local applied = "unknown"
 
+-- Frame pacing. `ac_sync` is whatever mpv.conf asked for, read once before
+-- anything here has had a chance to change it, so returning to the cable
+-- restores the user's setting rather than a value hard-coded in this script.
+local ac_sync      = mp.get_property("video-sync") or "audio"
+local applied_sync = nil
+
 local function is_animation(path)
     if not path then return false end
     local lower = path:lower()
@@ -158,6 +193,19 @@ local function chain_key()
     local want = (o.power_aware and not on_ac) and "light" or "full"
     if usable[want] then return want end
     return usable.full and "full" or "light"    -- whichever survived
+end
+
+-- Pacing is decided by the cable alone: it is not part of the `y` cycle and
+-- has nothing to do with whether this file is animation, because the saving is
+-- the same on every video.
+local function apply_pacing()
+    if o.battery_video_sync == "" then return end
+    local want = (o.power_aware and not on_ac) and o.battery_video_sync or ac_sync
+    if applied_sync ~= want then
+        mp.set_property("video-sync", want)
+        applied_sync = want
+        msg.info("frame pacing: video-sync=" .. want)
+    end
 end
 
 local function apply()
@@ -198,9 +246,35 @@ local function describe(on)
 end
 
 -- Polled, not subscribed: macOS raises no power-source event mpv can listen
--- for. `pmset -g ps` is a ~10 ms fork, and playback_only=false so it still
--- answers while paused. quiet=true suppresses the OSD for checks the user did
--- not ask for (script load, file load).
+-- for, so the only way to know is to run `pmset -g ps`.
+--
+-- 🔴 THAT FORK IS NOT FREE WHILE AUDIO IS PLAYING, and this used to run on a
+-- flat 30-second timer. macOS logged the result plainly:
+--     mpv  HALC_ProxyIOContext::IOWorkLoop: skipping cycle due to overload
+-- - a skipped audio I/O cycle, which is a short gap in the sound, i.e. an
+-- audible thump. 59 of them in one 75-minute sitting on 2026-09-10, and 31 of
+-- the 33 gaps between them were an exact multiple of 30 seconds (±0.1 s) with
+-- the sub-second phase drifting smoothly across the whole session - one
+-- periodic timer, not scattered load. mpv's own logs show nothing: at the ao
+-- layer there is no underrun, because mpv fed the buffer in time; it is the
+-- CoreAudio render callback that misses its deadline while the process forks.
+--
+-- It only ever bit ANIMATION, which is what made it so hard to place from the
+-- symptom: the timer was gated on wanted(), so it only ran while the shaders
+-- were in use. "A thump, but only on anime" was this.
+--
+-- It does not fire on every tick - only when the machine is already busy - so
+-- it comes and goes, and it is likelier in a scene that is working the GPU.
+--
+-- The fix is to stop forking underneath live audio. Refreshes now happen where
+-- the audio is already stopped or being flushed, so a skipped cycle has
+-- nothing to skip: a new file, a seek, and pausing. The timer survives only as
+-- a backstop while paused. Debounced through poll_power so that scrubbing,
+-- which fires `seek` repeatedly, cannot turn back into a fork per second.
+--
+-- playback_only=false so it still answers while paused - which is now the case
+-- that matters most. quiet=true suppresses the OSD for checks the user did not
+-- ask for (script load, file load).
 local function refresh_power(quiet)
     if not o.power_aware then return end
     mp.command_native_async({
@@ -219,6 +293,7 @@ local function refresh_power(quiet)
         on_ac = ac
         msg.info(ac and "on AC, full preset" or "on battery, light preset")
         local before = applied
+        apply_pacing()
         local on = apply()
         -- The picture visibly changes here without the user having touched a
         -- key, so say why: an unexplained softer frame mid-episode reads as a bug.
@@ -228,28 +303,55 @@ local function refresh_power(quiet)
     end)
 end
 
+-- Every refresh goes through here, so one debounce covers all of them. `gap`
+-- is the shortest time allowed since the last check: scrubbing fires `seek`
+-- many times a second, and each one would otherwise be a fork.
+local last_poll = -1e9
+local function poll_power(quiet, gap)
+    if not o.power_aware then return end
+    local now = mp.get_time()
+    if gap and (now - last_poll) < gap then return end
+    last_poll = now
+    refresh_power(quiet)
+end
+
 local function cycle()
     local i = 1
     for n, m in ipairs(MODES) do if m == mode then i = n end end
     mode = MODES[(i % #MODES) + 1]
     mp.osd_message(describe(apply()), 2)
     msg.info("mode " .. mode)
-    refresh_power(true)   -- correct the preset silently; the line above already spoke
+    poll_power(true)      -- correct the preset silently; the line above already spoke
 end
 
 -- Silent on load, deliberately: mpv says nothing when it picks a video track
 -- either, and an OSD line on every single file would be noise. Only the key talks.
 mp.register_event("file-loaded", function()
+    apply_pacing()
     apply()
-    refresh_power(true)
+    poll_power(true)          -- no gap: a new file is always worth one check
 end)
 
+-- Pausing stops the audio outright, so this is the one moment a fork is
+-- certainly free - and it is also when someone who has just reached for the
+-- charger is most likely to be sitting in front of it.
+mp.observe_property("pause", "bool", function(_, paused)
+    if paused then poll_power(false, 3) end
+end)
+
+-- A seek flushes and refills the audio buffer anyway, so a fork inside that
+-- window has nothing to interrupt.
+mp.register_event("seek", function() poll_power(false, 15) end)
+
+-- Backstop only, and only while paused: a timer that fires during playback is
+-- exactly the bug described above. This is what notices when the machine sat
+-- paused for an hour and the charger came out in the meantime.
 if o.power_aware and o.power_poll_seconds > 0 then
     mp.add_periodic_timer(o.power_poll_seconds, function()
-        if wanted() then refresh_power(false) end
+        if mp.get_property_bool("pause") then poll_power(false, 3) end
     end)
 end
 
-refresh_power(true)
+poll_power(true)
 
 mp.add_key_binding(nil, "cycle-video-quality", cycle)

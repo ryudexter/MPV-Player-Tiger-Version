@@ -85,6 +85,22 @@ def push(files):
         # there frozen.
         cmd(["set_property", "pause", False])
 
+        # ...and play it at 1x. speed is a global property and
+        # reset-on-next-file is empty, so without this a 4x session leaks into
+        # every file opened afterwards - and because this launcher is
+        # single-instance, "open another video" is a loadfile into the SAME
+        # process, which looks like a fresh start but is not one.
+        # Deliberately here and not in mpv.conf: reset-on-next-file=speed would
+        # also reset when an episode auto-advances. This fires only on a
+        # user-initiated open, so playlist playback keeps whatever speed it is
+        # running at. Unconditional, like the pause lift above - re-clicking
+        # the file that is already playing counts as opening it.
+        # KNOWN RACE: if skiptosilence.lua is mid-skip, switching files fires
+        # end-file -> restoreState(), which writes its saved speed back. That
+        # can land after this and keep the old speed for one open. Rare enough
+        # to document rather than poll for.
+        cmd(["set_property", "speed", 1.0])
+
     cmd(["set_property", "window-minimized", False])
     s.close()
 

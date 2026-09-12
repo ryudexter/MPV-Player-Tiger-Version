@@ -15,6 +15,7 @@ with the measurement that justified it.
 | **Back goes *back*** | While shuffled, `z` walks the history of what shuffle actually played — browser-style — not playlist order. |
 | **Playlist moves keep your position** | Stock mpv only writes the resume point on quit, so `next`/`prev` silently lose it. Here `x`/`z` write it first. |
 | **One window, always** | The launcher keeps a single long-lived mpv; opening a file adds to the running instance instead of spawning another. |
+| **Speed never sticks** | Playback speed is a *right now* choice. Stock mpv saves it per file in the resume data, so a show watched once at 4x reopens at 4x for good. Here every file you open starts at 1x — while an episode auto-advancing inside a playlist keeps whatever speed you set, so a binge is not interrupted. |
 | **Folder is the playlist** | Opening one video queues the whole folder (videos only — no cover art as a "video"). |
 | **Vertical volume bar** | Observes the `volume` *property*, so any new volume binding gets the bar for free. |
 | **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar with the time underneath. |
@@ -41,6 +42,9 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `/` | skip the opening titles — jump to the next silence |
 | `↑`/`↓` or `w`/`s` | volume ±5 |
 | `x` / `z` | next / previous (position-preserving) |
+| `]` / `[` | speed ±10% |
+| `}` / `{` | speed double / half |
+| `Delete` (mpv's `BS`) | back to 1x |
 | `Cmd`+`z` | shuffle on/off |
 | `l` | audio language: English → the film's other languages → round again |
 | `Alt`+`l` | choose a specific audio track from a searchable list |

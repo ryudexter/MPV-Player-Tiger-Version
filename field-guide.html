@@ -187,7 +187,7 @@
 
   <section>
     <h2><span class="num">02</span> Moving inside a video</h2>
-    <p class="lede">Four fixed jump sizes, and two more that work out their own landing point. Every one lands on the exact second — none of them drift to the nearest keyframe.</p>
+    <p class="lede">Four fixed jump sizes, and two more that work out their own landing point. Every one lands on the exact second — none of them drift to the nearest keyframe. Below them, three keys change how fast the video runs rather than where you are in it.</p>
     <div class="keys">
       <div class="row">
         <div><kbd>Shift</kbd><span class="plus">+</span><kbd>←</kbd> <kbd>→</kbd></div>
@@ -214,9 +214,24 @@
         <div class="what"><b>1 minute</b> — the blunt instrument, for a long stretch you want gone. Either Option key works</div>
       </div>
       <div class="row">
+        <div><kbd>]</kbd> <kbd>[</kbd></div>
+        <div class="what"><b>Faster and slower</b>, a tenth at a time. Voices keep their proper pitch instead of turning into chipmunks, so a slow stretch at 1.3x is still perfectly listenable</div>
+      </div>
+      <div class="row">
+        <div><kbd>}</kbd> <kbd>{</kbd></div>
+        <div class="what"><b>Double and half speed</b> — the big jump, for skimming a video to find a moment rather than watching it. Shift and the same two keys</div>
+      </div>
+      <div class="row">
+        <div><kbd>Delete</kbd></div>
+        <div class="what"><b>Back to normal speed.</b> The Delete key above Return, not the one in the arrow cluster</div>
+      </div>
+      <div class="row">
         <div><kbd>Space</kbd></div>
         <div class="what">Pause and resume</div>
       </div>
+    </div>
+    <div class="note">
+      <b>Speed is a “right now” choice — it never follows you around.</b> Whatever you were watching at double speed, the next video you open plays at normal speed. The one exception is deliberate: when an episode ends and the next starts by itself, it keeps the speed you set, so a run through a season at 2x isn't interrupted every 40 minutes. Left to itself mpv does the opposite — it files the speed away with your saved position, so a show watched once at 4x reopens at 4x for good.
     </div>
   </section>
 
@@ -358,6 +373,7 @@
       <li><span><b>Moving the mouse shows a slim progress bar</b>, not the full control bar. The controls — buttons, filename, timers — only appear when you push the pointer right down to the bottom edge of the screen, and they go away again after two seconds of a stationary mouse. Left to itself mpv keeps them up indefinitely while the pointer rests on them.</span></li>
       <li><span><b>The elapsed time sits under the bar</b>, at the bottom of the screen. Short messages like “Subtitles off” or “Zoom to fill” still appear in the top-left corner, where mpv puts them.</span></li>
       <li><span><b>Zoom is remembered per film.</b> Unlike subtitles, a film you zoomed with <kbd>g</kbd> is still zoomed when you come back to it.</span></li>
+      <li><span><b>Speed is not remembered</b> — the opposite of zoom, and on purpose. Every video you open starts at normal speed; only a playlist moving on by itself carries the speed across. See section 02.</span></li>
       <li><span><kbd>Shift</kbd><span class="plus">+</span><kbd>Q</kbd> <b>saves and quits</b> — the same as closing normally, kept because it's an mpv habit.</span></li>
       <li><span><kbd>Return</kbd>, <kbd>&gt;</kbd> <b>and</b> <kbd>&lt;</kbd> <b>are dead too.</b> All three were spare copies of <kbd>x</kbd> and <kbd>z</kbd>, and a stray press skipped the video. The mouse’s back and forward buttons still do it.</span></li>
       <li><span><kbd>l</kbd> <b>used to set loop points, and then to show the file in Finder.</b> mpv's default <kbd>l</kbd> marked the start and end of a repeating section, which nothing here ever used; it was Show in Finder for a week, and is now the audio-language key. Show in Finder moved to <kbd>i</kbd>.</span></li>
@@ -406,7 +422,7 @@
   </section>
 
   <footer>
-    Built on mpv 0.41.0 (Homebrew) · macOS · 10 September 2026
+    Built on mpv 0.41.0 (Homebrew) · macOS · 12 September 2026
   </footer>
 
 </div>

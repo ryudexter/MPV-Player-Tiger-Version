@@ -438,10 +438,61 @@ only — an embedded track is not a file that can be rewritten.
 **Requires** `pipx install subliminal` and `pipx install ffsubsync`. Both are
 called at their absolute `~/.local/bin/` paths — see the `PATH` note below.
 
+## When macOS itself breaks the player
+
+**macOS 27 (September 2026).** Two keys went wrong the day the OS was upgraded:
+the volume keys took about two seconds to be heard, and `/` (skip to silence)
+sailed past the intro and landed a minute or more into the episode. One cause
+for both.
+
+macOS 27 refuses the channel-layout call mpv makes while setting up its
+CoreAudio output whenever the samples are **planar**, so mpv silently falls back
+to its AVFoundation output — and that driver holds a fixed **two second**
+buffer, against CoreAudio's 0.2s:
+
+```
+[ao/coreaudio]    unable to set the input channel layout on the audio unit (…/-50)
+[ao/avfoundation] using soft-buffer of 96000 samples.        96000 / 48000 = 2.0s
+```
+
+Two seconds of audio was therefore already queued at all times, which is exactly
+what each symptom was:
+
+| symptom | why the buffer caused it |
+|---|---|
+| volume lags ~2s | mpv applies volume in the filter chain, *before* the output buffer, so the queued audio plays out at the old level first |
+| `/` overshoots | the script runs the file at speed 100 and watches `silencedetect`, so a 2s buffer puts the detector ~200 **seconds** of film ahead of the reported position |
+| last ~1.3s of every file silent | the fallback driver never drains its buffer at EOF ([#18461](https://github.com/mpv-player/mpv/issues/18461)) |
+
+The fix is one line in `mpv.conf`, `audio-format=float`: hand the audio unit
+**interleaved** samples, which macOS 27 accepts. Lossless — the decoder already
+produces 32-bit float and this changes only the memory layout, not the depth or
+the rate. A second block covers mono files, whose layout is refused whatever the
+format, by asking for stereo output on those files alone.
+
+Measured on a real episode, pressing `/` at 0:00, against `ffmpeg
+-af silencedetect` as the oracle (true next silence 6.04s):
+
+| | lands at | takes |
+|---|---|---|
+| broken (AVFoundation) | 54.6s, then 330.9s | 0.5–3.7s |
+| fixed (CoreAudio) | 6.09s, 6.17s, 6.17s | ~0.35s |
+
+Upstream bug: [mpv#18384](https://github.com/mpv-player/mpv/issues/18384), open
+at the time of writing. **Both blocks come out of `mpv.conf` once it is fixed.**
+
+🔑 The general lesson: mpv falling back to another audio driver is not a quiet
+substitution, and it says so only at `-v`. If timing, volume or anything
+audio-adjacent goes strange after an OS upgrade, run
+`mpv --msg-level=ao=v` and read which driver it actually settled on.
+
 ## Notes for future edits
 
 Things that cost real time here, all recorded in the config comments too:
 
+- **An OS upgrade can change which audio driver mpv uses, silently.** macOS 27
+  broke `ao_coreaudio`; the AVFoundation fallback's 2s buffer then broke the
+  volume keys and `/` at once. See "When macOS itself breaks the player" above.
 - macOS strips the Option modifier on arrow keys. `input-right-alt-gr=no` fixes
   **both** Option keys, despite the name.
 - `#` starts a comment in `mpv.conf` — colour values must be quoted or they are

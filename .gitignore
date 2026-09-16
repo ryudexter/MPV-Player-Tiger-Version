@@ -15,3 +15,6 @@ sound-state.json
 # (scripts/subtitle-fetch.lua falls back to here). Someone else's work, and
 # it names what has been watched.
 subs-fetched/
+
+# test rigs run from here import mpv-open, which leaves bytecode behind
+__pycache__/

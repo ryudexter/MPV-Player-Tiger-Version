@@ -13,31 +13,27 @@
 --   * a video will not repeat until every other one has been played
 -- Turning it OFF restores normal sequential order.
 --
--- Two options are forced while this is enabled, and put back when it is
--- switched off:
+-- keep-open is forced to "always" while this is enabled, and put back when it
+-- is switched off. "always" pauses at the end of EVERY file, and that pause is
+-- what raises the eof-reached this script picks the next video from.
 --
---   keep-open = "yes"    mpv pauses at the end of the last playlist entry
---       instead of terminating, and that pause is what raises the eof-reached
---       this script picks the next file from.
---       ⚠️ Measured 2026-09-20: "yes" holds only at the LAST entry - every
---       other file still auto-advances in playlist order, so a shuffled
---       8-clip folder actually plays 0..7 and only then jumps at random
---       (observed 0,1,...,7,5,6,7,2,3,4). "always" is the choice that pauses
---       at the end of EVERY file; forcing it instead gives a true permutation
---       (observed 0,7,2,4,1,3,6,5 then 4,1,6,2,3,5,0,7). Left at "yes" for
---       now - changing it changes how shuffle feels, not just what it says.
+-- ⚠️ It has to be "always", not "yes". "yes" holds only at the LAST playlist
+-- entry (measured 2026-09-20), so every other file still auto-advanced in
+-- playlist order and a shuffled 8-clip folder really played 0..7 before its
+-- first random jump. With "always" the order is a true permutation: measured
+-- 0,3,1,5,4,7,6,2 then 3,0,7,6,1,5,2,4, no repeat across the boundary.
 --
---   loop-playlist = "no"  mpv.conf sets inf, so an ordinary folder cycles back
---       to its first video instead of quitting the session. That wrap is taken
---       at the end of the last entry too, and it is served BEFORE the eof hook
---       above, which leaves this script never called at all: with inf left on,
---       shuffle degrades to plain sequential play (measured 0..7,0..7).
---       Nothing is lost by switching it off here - shuffle deals a fresh cycle
---       at the end, so the playlist never runs out while it is on.
+-- ⚠️ "always" is also what keeps this script working under the global
+-- loop-playlist=inf in mpv.conf. That loop and a keep-open pause compete for
+-- the same instant - the end of the last entry - and whichever holds mpv there
+-- first decides who chooses the next video. "yes" lost that race and shuffle
+-- silently degraded to sequential play (measured 0..7,0..7); "always" wins it,
+-- because it stops mpv at the end of every file, long before the playlist can
+-- run out. So loop-playlist is left alone here: it simply never comes up while
+-- shuffle is on, and it is fully in charge again the moment shuffle is off.
 
 local enabled    = false
 local saved_keep = nil
-local saved_loop = nil
 
 -- The cycle. Rather than a "already played" set, shuffle mode deals a random
 -- PERMUTATION of the playlist and walks it: that is what makes "everything
@@ -224,14 +220,17 @@ local function jump_to_index(idx)
 end
 
 -- x: forward through the history if we have gone back, otherwise a new random.
-local function go_forward()
+-- Returns true if it actually moved, so the eof handler can tell "nothing else
+-- to play" from a normal advance. opts.quiet suppresses the OSD for that case,
+-- which is a keypress message, not something to flash at the end of every lap.
+local function go_forward(opts)
     if hpos > 0 and hpos < #history then
         local idx = resolve(history[hpos + 1])
         if idx then
             hpos = hpos + 1
             history[hpos].index = idx
             jump_to_index(idx)
-            return
+            return true
         end
         -- that file is gone from the playlist: drop the stale tail and shuffle on
         for i = #history, hpos + 1, -1 do history[i] = nil end
@@ -239,14 +238,17 @@ local function go_forward()
 
     local idx = take_next()
     if not idx then
-        mp.osd_message("Shuffle: nothing else in the playlist", 2)
-        return
+        if not (opts and opts.quiet) then
+            mp.osd_message("Shuffle: nothing else in the playlist", 2)
+        end
+        return false
     end
     local pl = playlist()
     for i = #history, hpos + 1, -1 do history[i] = nil end
     history[#history + 1] = { filename = pl[idx] and pl[idx].filename, index = idx }
     hpos = #history
     jump_to_index(idx)
+    return true
 end
 
 -- z: back to the video that actually played before this one.
@@ -272,19 +274,28 @@ local function on_playlist_change()
     if enabled then refill() end
 end
 
+-- End of a file. Normally this deals the next random video; if there is
+-- nothing to deal - a one-video folder, or every other entry has vanished -
+-- restart this one instead. loop-playlist=inf would have done exactly that,
+-- but keep-open=always stops mpv at the end of the file before the playlist
+-- can run out, so this script owns the case now. Without it, a folder holding
+-- a single video would sit paused on its last frame with shuffle on.
 local function on_eof(_, reached)
-    if enabled and reached then go_forward() end
+    if not (enabled and reached) then return end
+    if not go_forward({ quiet = true }) then
+        mp.commandv("seek", 0, "absolute", "exact")
+        mp.set_property_bool("pause", false)
+    end
 end
 
 local function toggle()
     enabled = not enabled
     if enabled then
         saved_keep = mp.get_property("keep-open")
-        mp.set_property("keep-open", "yes")
-        saved_loop = mp.get_property("loop-playlist")
-        mp.set_property("loop-playlist", "no")
+        mp.set_property("keep-open", "always")
         mp.observe_property("eof-reached", "bool", on_eof)
-        mp.add_forced_key_binding("x", "shuffle-next", go_forward)
+        -- wrapped, so mpv's own key-event argument cannot arrive as opts
+        mp.add_forced_key_binding("x", "shuffle-next", function() go_forward() end)
         mp.add_forced_key_binding("z", "shuffle-prev", go_back)
         history = {}
         hpos    = 0
@@ -295,7 +306,15 @@ local function toggle()
         mp.osd_message("Shuffle: ON", 2)
     else
         if saved_keep then mp.set_property("keep-open", saved_keep) end
-        if saved_loop then mp.set_property("loop-playlist", saved_loop) end
+        -- Switching off in the instant a file is paused on its last frame would
+        -- otherwise leave it there: restoring keep-open does not retroactively
+        -- advance a player that has already stopped. Hand it on the way out,
+        -- through playlist-next so the restored loop-playlist decides whether
+        -- the end of the folder wraps.
+        if mp.get_property_bool("eof-reached") then
+            mp.commandv("playlist-next")
+            mp.set_property_bool("pause", false)
+        end
         mp.unobserve_property(on_eof)
         mp.unobserve_property(on_playlist_change)
         mp.remove_key_binding("shuffle-next")

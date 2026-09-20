@@ -74,7 +74,7 @@ mpv-open              single-instance launcher (Python)
 field-guide.html      illustrated guide to the whole setup
 shaders/              Anime4K v4.0.1, Mode A (HQ) only — 6 of the 39 files (MIT)
 script-opts/
-  video-quality.conf    which folders count as animation, and the battery preset
+  video-quality.conf    which folders count as animation, and the two presets
   thumbfast.conf        preview size, idle shutdown, absolute mpv path
   skiptosilence.conf    silence threshold, minimum length, mute while skipping
   webm.conf             mp4 output, quality, Desktop output dir, absolute mpv path
@@ -183,17 +183,17 @@ Only Mode A (HQ) is kept — 6 of the release's 39 shaders, 340K instead of
 2.3MB. To try Mode B or C, fetch the [v4.0.1 zip][a4k] again and swap the
 `CHAINS` lists in `scripts/video-quality.lua`.
 
-### On battery it steps down by itself
+### It runs the light chain by default, on either power source
 
 An earlier note here said there was no "light" preset because there was nothing
-to save. That measurement had been taken plugged in. Unplugged, this machine
-does **not** have the GPU headroom for the full chain, so the preset now follows
-the power cable — no key to press:
+to save. That measurement had been taken plugged in, **and on an idle machine**.
+Both halves of that turned out to matter, and since 2026-09-20 the default is the
+light chain whichever way the cable is pointing — no key to press:
 
-| power | preset | shaders |
-|---|---|---|
-| AC | full — Mode A (HQ), exactly as before | 6 |
-| battery | light — Clamp + the `x2_M` upscale + downscale | 4 |
+| power | preset | shaders | why |
+|---|---|---|---|
+| AC | light — Clamp + the `x2_M` upscale + downscale | 4 | the full chain only stays clean on a quiet machine, and plugging in is what makes this one busy — see below |
+| battery | light — the same four | 4 | the full chain drops 43.9% of frames |
 
 Measured on battery at 3456x2168 fullscreen, 1080p HEVC — three focus-gated
 12-second samples per chain in one run, chains swapped over the IPC socket, so
@@ -210,10 +210,25 @@ real CNN upscale. A middle option — Mode A with only the Restore stage removed
 keeping the VL upscale — was measured at **11.8%** (85 fps) and rejected: it is
 the VL *upscale*, not Restore, that this machine cannot afford unplugged.
 
-**On AC the full chain is fine**, measured the same way: **0.00% dropped at
-120 fps**, in the rounds whose no-shader baseline was also 0.00%. This really is
+**On AC the full chain measures clean**, the same way: **0.00% dropped at
+120 fps**, in the rounds whose no-shader baseline was also 0.00%. So the 43.9% is
 a battery ceiling and not a general one — unplugged, `full` sat at 42–46% in
 every sample; plugged in, it hits exactly zero.
+
+**But 0.00% is a quiet machine, and this one is not quiet when it is plugged in.**
+macOS holds background work back on battery and releases it the moment the cable
+goes in. Measured 2026-09-20 with no player open at all: `mediaanalysisd` at ~60%
+CPU with the hardware decoder pegged beside it for 41 hours straight, and the GPU
+already reading **24% utilisation** before mpv was launched. Set against what the
+chains themselves cost — off 36% / light 37% / **full 76–77%** GPU — the full
+chain is what tips 1080p anime into visible stutter there, and the light chain is
+not. That is why the default changed.
+
+It also puts the 42.6%-on-AC reading below in a different light. Discarding it was
+right: its no-shader baseline was 24%, so the number measured the machine and not
+the shaders. But that 24% baseline was never the freak round it was filed as — it
+is this machine's ordinary plugged-in state, and it is precisely the case the
+default now has to survive.
 
 Two traps, both of which caught an earlier version of this section:
 
@@ -234,8 +249,13 @@ Two traps, both of which caught an earlier version of this section:
   out of eight were thrown out this way on an otherwise idle-looking machine.
 
 It switches live, announced by a one-line OSD — an unexplained softer frame
-otherwise reads as a bug. `power_aware=no` in `script-opts/video-quality.conf`
-pins it to the full chain.
+otherwise reads as a bug. Two switches in `script-opts/video-quality.conf`:
+`ac_chain=full` puts Mode A (HQ) back on wall power, and `power_aware=no` ignores
+the cable altogether and uses the wall-power settings everywhere.
+
+⚠️ **Neither is load-aware.** The script polls the power cable, not the GPU, so it
+will never promote itself back to the full chain when the machine goes quiet
+again — that stays a config edit.
 
 ### …and it stops paying for frames you cannot see
 

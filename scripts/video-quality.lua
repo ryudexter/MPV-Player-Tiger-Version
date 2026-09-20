@@ -19,9 +19,10 @@
 -- a sticky `off` that outlives a restart is impossible to diagnose from the
 -- picture alone.
 --
--- TWO PRESETS, chosen by the power cable (see `power_aware` below). Superseding
--- an earlier note here that claimed there was nothing to save: that measurement
--- was taken plugged in. On battery an M3 Max does NOT have the GPU headroom for
+-- TWO PRESETS. `light` is the default on BOTH power sources as of 2026-09-20
+-- (see `ac_chain` below); `full` is opt-in. Superseding an earlier note here
+-- that claimed there was nothing to save: that measurement was taken plugged
+-- in, on an idle machine. On battery an M3 Max does NOT have the headroom for
 -- the full preset. Measured 2026-09-08 on battery, fullscreen 3456x2168, 1080p
 -- HEVC - three focus-gated 12 s samples per chain in a single run, chains
 -- swapped over the IPC socket, counting frame-drop-count against wall clock:
@@ -37,12 +38,27 @@
 -- *upscale*, not Restore, that this machine cannot afford unplugged - which is
 -- the opposite of what the first attempt at this concluded.
 --
--- ON AC the full chain is genuinely fine, verified 2026-09-08 the same way:
--- 0.00% dropped at 120 fps in the rounds whose no-shader baseline was also
--- 0.00%. So this really is a battery ceiling, not a general one - on battery
--- `full` sat at 42-46% in every single sample, on AC it hits exactly zero.
--- (A mid-investigation reading of 42.6% on AC was contamination, not a real
--- result: its no-shader baseline dropped 24% in the same round.)
+-- ON AC the full chain measures clean - 0.00% dropped at 120 fps, verified
+-- 2026-09-08 the same way, in the rounds whose no-shader baseline was also
+-- 0.00%. So the 43% is a battery ceiling, not a general one. But 0.00% is a
+-- QUIET machine, and this one routinely is not once it is plugged in: macOS
+-- releases the background work it holds back on battery the moment the cable
+-- goes in. Measured 2026-09-20 with no player running at all, mediaanalysisd
+-- sat at ~60% CPU with the hardware decoder pegged beside it for 41 hours, and
+-- the GPU already read 24% utilisation before mpv was even opened.
+--
+-- That is why `ac_chain` defaults to `light`. On the same machine and file the
+-- chains measured off 36% / light 37% / full 76-77% GPU, so `light` is within
+-- noise of no shaders at all and `full` costs double either of them. With a
+-- quarter of the GPU already gone, `full` is what tips 1080p anime into visible
+-- stutter and `light` is not. Set ac_chain=full to have it back.
+--
+-- One retraction re-examined rather than reversed: the 42.6%-on-AC reading from
+-- 2026-09-08 was thrown out because its no-shader baseline was 24%. As a
+-- measurement OF THE FULL CHAIN that was right - the number says nothing about
+-- the shaders. But the 24% baseline was not a freak round to be discarded; it
+-- is this machine's ordinary plugged-in state, which is exactly the case the
+-- default now has to survive.
 --
 -- WARNING, two ways this went wrong before:
 --  1. DO NOT re-derive any of this from per-stage `vo-passes` timings. They
@@ -65,9 +81,16 @@ local o = {
     -- here when a new animated series joins the library.
     animation_paths = "Solo Leveling;Attack on Titan;One Punch Man;Invincible;Avatar Aang;Anime",
 
-    -- Pick the preset from the power source: full on AC, light on battery.
-    -- Set to no to always use the full preset, whatever the cable is doing.
+    -- Pick the preset from the power source. On battery that is always the
+    -- light chain; on wall power it is whatever `ac_chain` says. Set to no to
+    -- ignore the cable and use the wall-power settings everywhere.
     power_aware = true,
+
+    -- Which chain to use on wall power: "light" or "full". See the measurements
+    -- at the top of this file - full asks for roughly double the GPU and only
+    -- stays clean on a machine with nothing else running, which this one often
+    -- is not once it is plugged in.
+    ac_chain = "light",
 
     -- Backstop interval for re-reading the power source, in seconds. It only
     -- fires WHILE PAUSED - see the comment above refresh_power for why a timer
@@ -104,6 +127,15 @@ local o = {
     battery_video_sync = "audio",
 }
 options.read_options(o, "video-quality")
+
+-- Without this a misspelt value misses `usable[want]` in chain_key and lands on
+-- the availability fallback, which picks `full` - the opposite of what anyone
+-- typing this option badly is likely to have meant.
+if o.ac_chain ~= "full" and o.ac_chain ~= "light" then
+    msg.warn("ac_chain must be 'full' or 'light', got '" .. tostring(o.ac_chain)
+             .. "' - using light")
+    o.ac_chain = "light"
+end
 
 -- Anime4K v4.0.1 "Mode A (HQ)", the preset upstream recommends for 1080p anime
 -- that is slightly soft: it restores the line art, then upscales it. `light`
@@ -190,7 +222,7 @@ local function wanted()
 end
 
 local function chain_key()
-    local want = (o.power_aware and not on_ac) and "light" or "full"
+    local want = (o.power_aware and not on_ac) and "light" or o.ac_chain
     if usable[want] then return want end
     return usable.full and "full" or "light"    -- whichever survived
 end
@@ -229,8 +261,11 @@ end
 -- Reports what is actually loaded rather than what the cable says, so a missing
 -- light preset can never make this claim the light preset is in use.
 local function preset_note()
-    if applied == "light" then return " - light preset, on battery" end
-    if applied == "full" and o.power_aware then return " - full quality" end
+    if applied == "light" then
+        if o.power_aware and not on_ac then return " - light preset, on battery" end
+        return " - light preset"
+    end
+    if applied == "full" then return " - full quality" end
     return ""
 end
 

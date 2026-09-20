@@ -17,6 +17,7 @@ with the measurement that justified it.
 | **One window, always** | The launcher keeps a single long-lived mpv; opening a file adds to the running instance instead of spawning another. |
 | **Speed never sticks** | Playback speed is a *right now* choice. Stock mpv saves it per file in the resume data, so a show watched once at 4x reopens at 4x for good. Here every file you open starts at 1x — while an episode auto-advancing inside a playlist keeps whatever speed you set, so a binge is not interrupted. |
 | **Folder is the playlist** | Opening one video queues the whole folder (videos only — no cover art as a "video"). |
+| **The folder loops, the session doesn't end** | Stock mpv terminates at the end of the last entry, which here would take the window, the playlist and the single instance with it. `loop-playlist=inf` wraps back to the first video instead. A file that played through resumes at 0 on the next lap, because mpv drops its resume point at EOF. |
 | **Vertical volume bar** | Observes the `volume` *property*, so any new volume binding gets the bar for free. |
 | **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar with the time underneath. |
 | **Seek thumbnails** | Hover the bottom strip and the frame at that point appears above the pointer. mpv has none of its own, and its built-in OSC cannot drive thumbfast — usually you have to adopt uosc's whole UI to get this. Here it is one 86-line bridge. |
@@ -513,6 +514,20 @@ Things that cost real time here, all recorded in the config comments too:
   simply never have been loaded.
 - `autocreate-playlist=filter` means opening one file loads the whole folder, so
   a test that passes a single file does *not* get a 1-file playlist.
+- **`loop-playlist` and `keep-open` compete for the same instant.** Both act at
+  the end of the *last* playlist entry, and the loop is served first. So the
+  global `loop-playlist=inf` would have silently reduced shuffle to sequential
+  play — measured on an 8-clip folder with shuffle ON: `0..7,0..7` with it set,
+  against `0..7,5,6,7,2,3,4` without. `shuffle-mode.lua` therefore forces
+  `loop-playlist=no` while it is enabled, alongside the `keep-open` it already
+  saved, and restores both on the way out.
+- **`keep-open=yes` holds only at the last entry, not at every file.** Every
+  other file still auto-advances in playlist order, which is why shuffle's
+  eof hook only fires once a folder runs out: a shuffled 8-clip folder really
+  plays `0..7` and jumps at random only then. `keep-open=always` is the choice
+  that pauses at the end of *every* file — forcing it gives a true permutation
+  (`0,7,2,4,1,3,6,5`, then `4,1,6,2,3,5,0,7`). Measured 2026-09-20; left at
+  `yes` deliberately, since it changes how shuffle feels.
 - The launcher exposes a permanent IPC socket at `/tmp/mpv-single.sock` — the
   way to inspect a live session without touching the config.
 - mpv's builtin `select.lua` menus (`Ctrl`+`p`, and the playlist selector inside

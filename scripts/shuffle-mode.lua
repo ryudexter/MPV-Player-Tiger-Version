@@ -13,12 +13,31 @@
 --   * a video will not repeat until every other one has been played
 -- Turning it OFF restores normal sequential order.
 --
--- keep-open is forced to "yes" while enabled so mpv pauses at the end of a
--- file instead of auto-advancing; that lets this script choose what plays
--- next rather than briefly loading the sequential one first.
+-- Two options are forced while this is enabled, and put back when it is
+-- switched off:
+--
+--   keep-open = "yes"    mpv pauses at the end of the last playlist entry
+--       instead of terminating, and that pause is what raises the eof-reached
+--       this script picks the next file from.
+--       ⚠️ Measured 2026-09-20: "yes" holds only at the LAST entry - every
+--       other file still auto-advances in playlist order, so a shuffled
+--       8-clip folder actually plays 0..7 and only then jumps at random
+--       (observed 0,1,...,7,5,6,7,2,3,4). "always" is the choice that pauses
+--       at the end of EVERY file; forcing it instead gives a true permutation
+--       (observed 0,7,2,4,1,3,6,5 then 4,1,6,2,3,5,0,7). Left at "yes" for
+--       now - changing it changes how shuffle feels, not just what it says.
+--
+--   loop-playlist = "no"  mpv.conf sets inf, so an ordinary folder cycles back
+--       to its first video instead of quitting the session. That wrap is taken
+--       at the end of the last entry too, and it is served BEFORE the eof hook
+--       above, which leaves this script never called at all: with inf left on,
+--       shuffle degrades to plain sequential play (measured 0..7,0..7).
+--       Nothing is lost by switching it off here - shuffle deals a fresh cycle
+--       at the end, so the playlist never runs out while it is on.
 
 local enabled    = false
 local saved_keep = nil
+local saved_loop = nil
 
 -- The cycle. Rather than a "already played" set, shuffle mode deals a random
 -- PERMUTATION of the playlist and walks it: that is what makes "everything
@@ -262,6 +281,8 @@ local function toggle()
     if enabled then
         saved_keep = mp.get_property("keep-open")
         mp.set_property("keep-open", "yes")
+        saved_loop = mp.get_property("loop-playlist")
+        mp.set_property("loop-playlist", "no")
         mp.observe_property("eof-reached", "bool", on_eof)
         mp.add_forced_key_binding("x", "shuffle-next", go_forward)
         mp.add_forced_key_binding("z", "shuffle-prev", go_back)
@@ -274,6 +295,7 @@ local function toggle()
         mp.osd_message("Shuffle: ON", 2)
     else
         if saved_keep then mp.set_property("keep-open", saved_keep) end
+        if saved_loop then mp.set_property("loop-playlist", saved_loop) end
         mp.unobserve_property(on_eof)
         mp.unobserve_property(on_playlist_change)
         mp.remove_key_binding("shuffle-next")

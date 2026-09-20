@@ -183,17 +183,24 @@ Only Mode A (HQ) is kept — 6 of the release's 39 shaders, 340K instead of
 2.3MB. To try Mode B or C, fetch the [v4.0.1 zip][a4k] again and swap the
 `CHAINS` lists in `scripts/video-quality.lua`.
 
-### It runs the light chain by default, on either power source
+### It measures the machine and moves between three rungs
 
 An earlier note here said there was no "light" preset because there was nothing
 to save. That measurement had been taken plugged in, **and on an idle machine**.
-Both halves of that turned out to matter, and since 2026-09-20 the default is the
-light chain whichever way the cable is pointing — no key to press:
+Both halves of that turned out to matter — so since 2026-09-20 the shaders are a
+**ladder** rather than a fixed choice, and what runs is whichever rung the
+machine has most recently shown it can afford:
 
-| power | preset | shaders | why |
+| rung | shaders | GPU | when |
 |---|---|---|---|
-| AC | light — Clamp + the `x2_M` upscale + downscale | 4 | the full chain only stays clean on a quiet machine, and plugging in is what makes this one busy — see below |
-| battery | light — the same four | 4 | the full chain drops 43.9% of frames |
+| **full** — Mode A (HQ) | 6 | ~76% | wall power, and the machine has been losing no frames for a minute |
+| **light** — Clamp + `x2_M` + downscale | 4 | ~37% | the starting rung on wall power, and where it falls back to under load |
+| **off** | 0 | ~36% | heavy load, or on battery |
+
+On battery it is **off**, not light. The light chain is nearly free in dropped
+frames but it is not free in watt-hours, and it is GPU spent on a picture nobody
+asked for. <kbd>y</kbd> → "always on" still brings it back, and
+`battery_chain=light` restores the old behaviour.
 
 Measured on battery at 3456x2168 fullscreen, 1080p HEVC — three focus-gated
 12-second samples per chain in one run, chains swapped over the IPC socket, so
@@ -249,13 +256,50 @@ Two traps, both of which caught an earlier version of this section:
   out of eight were thrown out this way on an otherwise idle-looking machine.
 
 It switches live, announced by a one-line OSD — an unexplained softer frame
-otherwise reads as a bug. Two switches in `script-opts/video-quality.conf`:
-`ac_chain=full` puts Mode A (HQ) back on wall power, and `power_aware=no` ignores
-the cable altogether and uses the wall-power settings everywhere.
+otherwise reads as a bug.
 
-⚠️ **Neither is load-aware.** The script polls the power cable, not the GPU, so it
-will never promote itself back to the full chain when the machine goes quiet
-again — that stays a config edit.
+#### How it decides: mpv's own dropped frames, not a GPU meter
+
+The signal is `frame-drop-count` and `vo-delayed-frame-count`, sampled over a
+10-second window and expressed as a fraction of the frames that *should* have
+been shown — so one threshold means the same thing on 23.976 fps film and on
+60 fps video. Lose more than **2%** of a window and it steps down a rung
+immediately. Stay under **0.5%** for a continuous minute and it climbs one.
+Between the two it holds, which is what stops it oscillating around a single
+number. Two reasons for that choice over reading the GPU:
+
+- **It costs no fork.** A load monitor has to sample every few seconds to be any
+  use, and a periodic fork under live audio is exactly the bug fixed in
+  `9eac603` — it made mpv's CoreAudio callback miss its deadline, heard as a
+  thump. Reading a property is in-process and free. Measured with real audio and
+  the sampler stressed at a 2-second window, five times its normal rate:
+  **0 skipped audio cycles in 60 s, against 0 for the sampler switched off.**
+- **It measures the symptom, not a proxy.** Whatever is taking the machine —
+  another app, a background index, thermal throttling — arrives as dropped
+  frames, and a chain that cannot be afforded convicts itself.
+
+Climbing recompiles the shaders, which is a visible hitch, so climbing is slow
+and stepping down is immediate. A rung that fails straight after being climbed
+to doubles its own wait, capped at 8× — so a machine that keeps refusing `full`
+stops being asked every minute and settles at retrying every eight.
+
+Three traps this had to be built around, all of them already recorded here:
+
+- **The drop counters freeze when mpv is unfocused.** macOS stops compositing it,
+  every window reads a flawless zero, and the ladder would climb to `full` on the
+  strength of a measurement that never happened. Every sample is gated on
+  `focused`.
+- **Seeks, pauses, focus changes and shader recompiles all drop frames** for
+  reasons that have nothing to do with sustained load. Each one marks the window
+  in progress as unusable rather than letting it count.
+- **`--vo=libmpv` with no render client manufactures dropped frames**, so it is
+  useless for testing this — it reports overload on a completely idle machine.
+  Drive the counters from a stub instead, or use a real window.
+
+Switches in `script-opts/video-quality.conf`: `load_aware=no` pins the chain and
+stops it moving, `ac_max_chain=light` lowers the ceiling so it never reaches
+Mode A, `battery_chain=light` puts the old battery behaviour back, and
+`power_aware=no` ignores the cable altogether.
 
 ### …and it stops paying for frames you cannot see
 

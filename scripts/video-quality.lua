@@ -19,10 +19,12 @@
 -- a sticky `off` that outlives a restart is impossible to diagnose from the
 -- picture alone.
 --
--- TWO PRESETS. `light` is the default on BOTH power sources as of 2026-09-20
--- (see `ac_chain` below); `full` is opt-in. Superseding an earlier note here
--- that claimed there was nothing to save: that measurement was taken plugged
--- in, on an idle machine. On battery an M3 Max does NOT have the headroom for
+-- THREE RUNGS - full, light, off - and what runs is whichever one the machine
+-- has most recently shown it can afford. `ac_max_chain` and `battery_chain` are
+-- the ends of that ladder; the load sampler further down does the moving.
+-- Superseding an earlier note here that claimed there was nothing to save: that
+-- measurement was taken plugged in, AND on an idle machine. Both halves of that
+-- mattered. On battery an M3 Max does NOT have the headroom for
 -- the full preset. Measured 2026-09-08 on battery, fullscreen 3456x2168, 1080p
 -- HEVC - three focus-gated 12 s samples per chain in a single run, chains
 -- swapped over the IPC socket, counting frame-drop-count against wall clock:
@@ -47,11 +49,18 @@
 -- sat at ~60% CPU with the hardware decoder pegged beside it for 41 hours, and
 -- the GPU already read 24% utilisation before mpv was even opened.
 --
--- That is why `ac_chain` defaults to `light`. On the same machine and file the
--- chains measured off 36% / light 37% / full 76-77% GPU, so `light` is within
--- noise of no shaders at all and `full` costs double either of them. With a
--- quarter of the GPU already gone, `full` is what tips 1080p anime into visible
--- stutter and `light` is not. Set ac_chain=full to have it back.
+-- That is what the ladder is for. On the same machine and file the chains
+-- measured off 36% / light 37% / full 76-77% GPU, so `light` is within noise of
+-- no shaders at all while `full` costs double either of them. With a quarter of
+-- the GPU already gone before mpv opens, `full` is what tips 1080p anime into
+-- visible stutter and `light` is not - but on a genuinely idle machine `full`
+-- is free and worth having. Neither is right all the time, which is why this no
+-- longer picks one and lives with it: it measures, and moves.
+--
+-- ON BATTERY the default is now OFF rather than the light chain. The light
+-- chain is nearly free in dropped frames but it is not free in watt-hours, and
+-- it is GPU spent on a picture nobody asked for. `y` -> "always on" still
+-- brings it back, and `battery_chain=light` restores the old behaviour.
 --
 -- One retraction re-examined rather than reversed: the 42.6%-on-AC reading from
 -- 2026-09-08 was thrown out because its no-shader baseline was 24%. As a
@@ -81,16 +90,46 @@ local o = {
     -- here when a new animated series joins the library.
     animation_paths = "Solo Leveling;Attack on Titan;One Punch Man;Invincible;Avatar Aang;Anime",
 
-    -- Pick the preset from the power source. On battery that is always the
-    -- light chain; on wall power it is whatever `ac_chain` says. Set to no to
-    -- ignore the cable and use the wall-power settings everywhere.
+    -- Whether the cable is consulted at all. With this off, `ac_max_chain` is
+    -- the ceiling everywhere and `battery_chain` is ignored - the load ladder
+    -- still runs, it just never has the cable lowering the ceiling under it.
     power_aware = true,
 
-    -- Which chain to use on wall power: "light" or "full". See the measurements
-    -- at the top of this file - full asks for roughly double the GPU and only
-    -- stays clean on a machine with nothing else running, which this one often
-    -- is not once it is plugged in.
-    ac_chain = "light",
+    -- The BEST chain the ladder may climb to on wall power: "light" or "full".
+    -- A ceiling, not a fixed choice - what actually runs is whatever the load
+    -- ladder below has earned, up to this.
+    ac_max_chain = "full",
+
+    -- What to use on battery: "off", "light" or "full". Off by default - the
+    -- full chain drops 43.9% of frames unplugged (measured, see above) and even
+    -- the light one is GPU that comes straight out of the battery for a picture
+    -- you did not ask for. `y` -> "always on" still overrides this.
+    battery_chain = "off",
+
+    -- ---- the load ladder ---------------------------------------------------
+    -- Climb to a sharper chain while the machine can afford it, step down when
+    -- it cannot. Set to no to pin the chain to ac_max_chain/battery_chain.
+    load_aware = true,
+
+    -- How long each measuring window is. At 23.976 fps a 10 s window is about
+    -- 240 frames, so the 2% threshold below is ~5 dropped frames - enough to
+    -- be a real signal rather than noise. Shorter windows react faster and
+    -- convict on nothing.
+    load_window_seconds = 10,
+
+    -- Step DOWN a rung when this fraction of the frames in a window is lost.
+    load_down_fraction = 0.02,
+
+    -- Step UP only while losses stay under this. The gap between the two is
+    -- deliberate: in between, the ladder holds where it is rather than
+    -- oscillating around a single threshold.
+    load_up_fraction = 0.005,
+
+    -- Seconds of continuous clean playback needed before climbing a rung.
+    -- Climbing recompiles the shaders, which is a visible hitch, so this is
+    -- slow on purpose while stepping down is immediate. A rung that fails
+    -- straight after being climbed to doubles its own wait, up to 8x.
+    load_up_after_seconds = 60,
 
     -- Backstop interval for re-reading the power source, in seconds. It only
     -- fires WHILE PAUSED - see the comment above refresh_power for why a timer
@@ -128,14 +167,17 @@ local o = {
 }
 options.read_options(o, "video-quality")
 
--- Without this a misspelt value misses `usable[want]` in chain_key and lands on
--- the availability fallback, which picks `full` - the opposite of what anyone
--- typing this option badly is likely to have meant.
-if o.ac_chain ~= "full" and o.ac_chain ~= "light" then
-    msg.warn("ac_chain must be 'full' or 'light', got '" .. tostring(o.ac_chain)
-             .. "' - using light")
-    o.ac_chain = "light"
+-- A misspelt chain name would otherwise be read as level 0 further down and
+-- silently turn the shaders off, which looks exactly like the feature being
+-- broken. Fail loudly into the documented default instead.
+local function validate(name, value, allowed, fallback)
+    for _, ok in ipairs(allowed) do if value == ok then return value end end
+    msg.warn(name .. " must be one of " .. table.concat(allowed, "/") .. ", got '"
+             .. tostring(value) .. "' - using " .. fallback)
+    return fallback
 end
+o.ac_max_chain  = validate("ac_max_chain",  o.ac_max_chain,  {"full", "light"}, "full")
+o.battery_chain = validate("battery_chain", o.battery_chain, {"off", "light", "full"}, "off")
 
 -- Anime4K v4.0.1 "Mode A (HQ)", the preset upstream recommends for 1080p anime
 -- that is slightly soft: it restores the line art, then upscales it. `light`
@@ -203,6 +245,49 @@ local applied = "unknown"
 local ac_sync      = mp.get_property("video-sync") or "audio"
 local applied_sync = nil
 
+-- ---- the ladder ------------------------------------------------------------
+-- Three rungs. "off" is a rung rather than an absence, so the same stepping
+-- logic covers "this machine cannot afford any shaders right now".
+local LEVELS     = { off = 0, none = 0, light = 1, full = 2 }
+local LEVEL_NAME = { [0] = "none", [1] = "light", [2] = "full" }
+local function level_of(word) return LEVELS[word] or 0 end
+
+-- Where the ladder is sitting. Starts at `light`, not at the ceiling: starting
+-- at `full` on a machine that is already busy means one bad window - and a
+-- visible stutter - before it steps down, while starting light costs 1% of the
+-- GPU over nothing at all and climbs within the minute if there is room.
+-- Not persisted, for the same reason `mode` is not: what the machine was doing
+-- at the last quit says nothing about what it is doing now.
+local rung = 1
+
+-- Window state. `dirty` marks the window in progress as unusable: a seek, a
+-- pause, a focus change and a shader recompile all drop frames for reasons that
+-- have nothing to do with sustained load, and counting those would convict the
+-- chain of a cost it is not incurring.
+local s_drops, s_delayed, s_time = nil, nil, nil
+local dirty      = true
+local clean_time = 0
+local promo_time = -1e9
+local backoff    = { [1] = 1, [2] = 1 }
+
+local function mark_dirty() dirty = true end
+
+-- The best chain allowed right now, cable included.
+local function ceiling()
+    if o.power_aware and not on_ac then return level_of(o.battery_chain) end
+    return level_of(o.ac_max_chain)
+end
+
+-- `y` -> "always on" is an explicit instruction, so it floors the ladder at the
+-- light chain: a key labelled "always on" that leaves the picture untouched is
+-- worse than useless. It never floors at `full`, because the entire point of
+-- the ladder is that `full` is not always affordable.
+local function floor_level() return mode == "on" and 1 or 0 end
+
+local function target_level()
+    return math.max(math.min(rung, ceiling()), floor_level())
+end
+
 local function is_animation(path)
     if not path then return false end
     local lower = path:lower()
@@ -222,9 +307,9 @@ local function wanted()
 end
 
 local function chain_key()
-    local want = (o.power_aware and not on_ac) and "light" or o.ac_chain
-    if usable[want] then return want end
-    return usable.full and "full" or "light"    -- whichever survived
+    local key = LEVEL_NAME[target_level()]
+    if key == "none" or usable[key] then return key end
+    return usable.full and "full" or (usable.light and "light" or "none")
 end
 
 -- Pacing is decided by the cable alone: it is not part of the `y` cycle and
@@ -240,13 +325,17 @@ local function apply_pacing()
     end
 end
 
+-- Returns whether this file WANTS shaders, which is not the same as whether any
+-- are loaded: the ladder can hold a wanted file at "none" because the machine
+-- cannot afford them. describe() reports the difference.
 local function apply()
-    local on = wanted()
-    if on then
-        local key = chain_key()
+    local want = wanted()
+    local key  = want and chain_key() or "none"
+    if key ~= "none" then
         if applied ~= key then
             mp.set_property("glsl-shaders", joined[key])
             applied = key
+            mark_dirty()   -- a recompile drops frames; do not bill them to the chain
         end
     elseif applied ~= "none" then
         -- NOT set_property(""): that leaves the list holding one EMPTY path
@@ -254,19 +343,20 @@ local function apply()
         -- 'clr' is the only thing that actually empties the list. Measured.
         mp.commandv("change-list", "glsl-shaders", "clr", "")
         applied = "none"
+        mark_dirty()
     end
-    return on
+    return want
 end
 
 -- Reports what is actually loaded rather than what the cable says, so a missing
 -- light preset can never make this claim the light preset is in use.
 local function preset_note()
-    if applied == "light" then
-        if o.power_aware and not on_ac then return " - light preset, on battery" end
-        return " - light preset"
-    end
-    if applied == "full" then return " - full quality" end
-    return ""
+    if applied == "full"  then return " - full quality" end
+    if applied == "light" then return " - light preset" end
+    -- Wanted, but nothing is loaded. Which of the two reasons it is matters to
+    -- anyone wondering why the picture is not what it was ten minutes ago.
+    if o.power_aware and not on_ac then return " - off on battery" end
+    return " - off, machine busy"
 end
 
 local function describe(on)
@@ -278,6 +368,98 @@ local function describe(on)
         return "Sharper picture: always on" .. preset_note()
     end
     return "Sharper picture: off"
+end
+
+-- ---- reading the load ------------------------------------------------------
+-- The signal is mpv's OWN frame counters, not a GPU meter, for two reasons.
+--
+-- 1. It costs no fork. A load monitor has to sample every few seconds to be any
+--    use, and a periodic fork under live audio is exactly the bug fixed in
+--    9eac603 - see the long note above refresh_power. `frame-drop-count` is an
+--    ordinary property read, entirely in-process, so this timer is free in the
+--    way the pmset one was not.
+-- 2. It measures the symptom instead of a proxy. Whatever is stealing the
+--    machine - another app, a background index, thermal throttling - arrives
+--    here as dropped frames, and a chain that cannot be afforded convicts
+--    itself. It is self-correcting in a way a utilisation threshold is not.
+--
+-- Dropped frames stay a valid signal with NO shaders loaded, which is what
+-- makes climbing back up possible at all: the 24% no-shader baseline recorded
+-- on 2026-09-08 is precisely this, a machine losing a quarter of its frames
+-- before mpv had done a single shader pass.
+--
+-- 🚨 The counters FREEZE while mpv is unfocused - macOS stops compositing it,
+-- so every window reads a flawless zero and the ladder would climb to `full` on
+-- the strength of a measurement that never happened. Every sample is gated on
+-- `focused`, which is the same trap that cost a whole measuring run in 2026-09.
+local function sample_load()
+    if not o.load_aware or not available then return end
+
+    if mp.get_property("path") == nil
+       or mp.get_property("video-format") == nil
+       or mp.get_property_bool("pause")
+       or not mp.get_property_bool("focused") then
+        mark_dirty()
+        return
+    end
+
+    local drops   = mp.get_property_number("frame-drop-count", 0)
+    local delayed = mp.get_property_number("vo-delayed-frame-count", 0)
+    local now     = mp.get_time()
+
+    if dirty or not s_time then
+        s_drops, s_delayed, s_time, dirty = drops, delayed, now, false
+        return
+    end
+
+    local elapsed = now - s_time
+    local lost    = (drops - s_drops) + (delayed - s_delayed)
+    s_drops, s_delayed, s_time = drops, delayed, now
+    -- A new file resets mpv's counters, so a negative delta means the window
+    -- straddled something this cannot reason about.
+    if lost < 0 or elapsed < 1 then return end
+
+    -- As a fraction of the frames that SHOULD have been shown, so one threshold
+    -- means the same thing on 23.976 fps film and on 60 fps video.
+    local fps = mp.get_property_number("container-fps")
+             or mp.get_property_number("estimated-vf-fps") or 24
+    local expected = fps * elapsed
+    if expected < 1 then return end
+    local frac = lost / expected
+
+    -- Unplugging lowers the ceiling under the ladder; never leave `rung` above
+    -- it, or plugging back in would restore a rung earned under other
+    -- conditions rather than re-earning it.
+    local ceil = ceiling()
+    if rung > ceil then rung = ceil end
+
+    local before = applied
+    if frac >= o.load_down_fraction and rung > 0 then
+        -- Failed its probation: this rung was climbed to moments ago and has
+        -- already cost frames, so the next attempt waits longer. Capped at 8x
+        -- so the longest retry stays bounded - 8 minutes at the default.
+        if (now - promo_time) < (o.load_up_after_seconds * 2) then
+            backoff[rung] = math.min((backoff[rung] or 1) * 2, 8)
+        end
+        rung, clean_time = rung - 1, 0
+        msg.info(string.format("load %.1f%% of frames lost, stepping down to %s",
+                               frac * 100, LEVEL_NAME[rung]))
+    elseif frac <= o.load_up_fraction then
+        clean_time = clean_time + elapsed
+        local up = rung + 1
+        if up <= ceil and clean_time >= o.load_up_after_seconds * (backoff[up] or 1) then
+            rung, promo_time, clean_time = up, now, 0
+            msg.info("clean for " .. math.floor(o.load_up_after_seconds *
+                     (backoff[up] or 1)) .. "s, stepping up to " .. LEVEL_NAME[rung])
+        end
+    else
+        clean_time = 0        -- between the two thresholds: hold where we are
+    end
+
+    local on = apply()
+    -- Same rule as the power switch: the picture has just changed without the
+    -- user touching anything, so say why rather than let it read as a fault.
+    if applied ~= before and on then mp.osd_message(describe(on), 2) end
 end
 
 -- Polled, not subscribed: macOS raises no power-source event mpv can listen
@@ -319,14 +501,21 @@ local function refresh_power(quiet)
         playback_only = false,
     }, function(ok, res)
         if not ok or not res or res.status ~= 0 or not res.stdout then
-            msg.warn("could not read the power source, keeping the full preset")
+            msg.warn("could not read the power source, assuming AC")
             return
         end
         -- "Now drawing from 'AC Power'" / "Now drawing from 'Battery Power'"
         local ac = res.stdout:find("AC Power", 1, true) ~= nil
         if ac == on_ac then return end          -- nothing moved
         on_ac = ac
-        msg.info(ac and "on AC, full preset" or "on battery, light preset")
+        -- A different cable is a different regime: what the ladder learned
+        -- about what this machine could afford a minute ago does not carry
+        -- across, so the penalties and the clean streak both start again.
+        backoff, clean_time, promo_time = { [1] = 1, [2] = 1 }, 0, -1e9
+        if rung > ceiling() then rung = ceiling() end
+        mark_dirty()
+        msg.info(ac and ("on AC, ceiling " .. o.ac_max_chain)
+                     or ("on battery, " .. o.battery_chain))
         local before = applied
         apply_pacing()
         local on = apply()
@@ -362,6 +551,7 @@ end
 -- Silent on load, deliberately: mpv says nothing when it picks a video track
 -- either, and an OSD line on every single file would be noise. Only the key talks.
 mp.register_event("file-loaded", function()
+    mark_dirty()
     apply_pacing()
     apply()
     poll_power(true)          -- no gap: a new file is always worth one check
@@ -371,12 +561,29 @@ end)
 -- certainly free - and it is also when someone who has just reached for the
 -- charger is most likely to be sitting in front of it.
 mp.observe_property("pause", "bool", function(_, paused)
+    mark_dirty()
     if paused then poll_power(false, 3) end
 end)
 
 -- A seek flushes and refills the audio buffer anyway, so a fork inside that
 -- window has nothing to interrupt.
-mp.register_event("seek", function() poll_power(false, 15) end)
+mp.register_event("seek", function()
+    mark_dirty()
+    poll_power(false, 15)
+end)
+
+-- Both of these drop frames for reasons that are nothing to do with sustained
+-- load - a refill after a seek, and a window that macOS simply stopped
+-- compositing - so the window in progress is discarded rather than counted.
+mp.register_event("playback-restart", mark_dirty)
+mp.observe_property("focused", "bool", mark_dirty)
+
+-- Unlike the power poll above, this is a plain in-process property read with no
+-- subprocess behind it, so a timer that fires during playback is safe here in
+-- exactly the way it was not there.
+if o.load_aware and o.load_window_seconds > 0 then
+    mp.add_periodic_timer(o.load_window_seconds, sample_load)
+end
 
 -- Backstop only, and only while paused: a timer that fires during playback is
 -- exactly the bug described above. This is what notices when the machine sat

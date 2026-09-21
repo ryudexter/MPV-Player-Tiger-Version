@@ -19,6 +19,24 @@
 -- a sticky `off` that outlives a restart is impossible to diagnose from the
 -- picture alone.
 --
+-- THE OSD RULE (the user's decision, 2026-09-21). The ONLY thing in this script
+-- that may put a message on screen is a press of the key above. Not a
+-- load-driven rung change, not plugging in, not unplugging, not startup, not a
+-- new file. There is exactly ONE mp.osd_message call in this file and it lives
+-- in cycle(); if you find yourself adding a second, that is this rule being
+-- broken rather than a bug being fixed.
+--
+-- This deliberately REVERSES the principle the rest of this file was built on -
+-- that a picture which changes by itself should say why, or it reads as a
+-- fault. The user was told that is exactly what they are giving up and asked
+-- for silence regardless: they would rather never see the line than be
+-- informed of a change they did not ask for. It is a preference about their own
+-- media player, not an oversight to correct.
+--
+-- Nothing is lost for diagnosis: every chain change and every power change
+-- still goes to the log through msg.info, so `--log-file=<path>` (or
+-- log-file= in mpv.conf) recovers the entire history after the fact.
+--
 -- THREE RUNGS - full, light, off - and what runs is whichever one the machine
 -- has most recently shown it can afford. `ac_max_chain` and `battery_chain` are
 -- the ends of that ladder; the load sampler further down does the moving.
@@ -456,10 +474,11 @@ local function sample_load()
         clean_time = 0        -- between the two thresholds: hold where we are
     end
 
-    local on = apply()
-    -- Same rule as the power switch: the picture has just changed without the
-    -- user touching anything, so say why rather than let it read as a fault.
-    if applied ~= before and on then mp.osd_message(describe(on), 2) end
+    -- NO OSD HERE, and not by oversight - read THE OSD RULE at the top of this
+    -- file before putting one back. `before` survives only so the log line
+    -- below can record a rung change that nothing on screen will.
+    apply()
+    if applied ~= before then msg.info("chain now " .. applied) end
 end
 
 -- Polled, not subscribed: macOS raises no power-source event mpv can listen
@@ -490,9 +509,9 @@ end
 -- which fires `seek` repeatedly, cannot turn back into a fork per second.
 --
 -- playback_only=false so it still answers while paused - which is now the case
--- that matters most. quiet=true suppresses the OSD for checks the user did not
--- ask for (script load, file load).
-local function refresh_power(quiet)
+-- that matters most. There used to be a `quiet` flag here to suppress the OSD
+-- on checks the user had not asked for; every check is silent now, so it went.
+local function refresh_power()
     if not o.power_aware then return end
     mp.command_native_async({
         name          = "subprocess",
@@ -516,14 +535,9 @@ local function refresh_power(quiet)
         mark_dirty()
         msg.info(ac and ("on AC, ceiling " .. o.ac_max_chain)
                      or ("on battery, " .. o.battery_chain))
-        local before = applied
         apply_pacing()
-        local on = apply()
-        -- The picture visibly changes here without the user having touched a
-        -- key, so say why: an unexplained softer frame mid-episode reads as a bug.
-        if on and applied ~= before and not quiet then
-            mp.osd_message(describe(on), 2)
-        end
+        apply()
+        -- Silent, including on plug and unplug. THE OSD RULE.
     end)
 end
 
@@ -531,21 +545,22 @@ end
 -- is the shortest time allowed since the last check: scrubbing fires `seek`
 -- many times a second, and each one would otherwise be a fork.
 local last_poll = -1e9
-local function poll_power(quiet, gap)
+local function poll_power(gap)
     if not o.power_aware then return end
     local now = mp.get_time()
     if gap and (now - last_poll) < gap then return end
     last_poll = now
-    refresh_power(quiet)
+    refresh_power()
 end
 
 local function cycle()
     local i = 1
     for n, m in ipairs(MODES) do if m == mode then i = n end end
     mode = MODES[(i % #MODES) + 1]
+    -- The ONE place this script raises an OSD. THE OSD RULE, top of the file.
     mp.osd_message(describe(apply()), 2)
     msg.info("mode " .. mode)
-    poll_power(true)      -- correct the preset silently; the line above already spoke
+    poll_power()          -- correct the chain; the line above already spoke
 end
 
 -- Silent on load, deliberately: mpv says nothing when it picks a video track
@@ -554,7 +569,7 @@ mp.register_event("file-loaded", function()
     mark_dirty()
     apply_pacing()
     apply()
-    poll_power(true)          -- no gap: a new file is always worth one check
+    poll_power()              -- no gap: a new file is always worth one check
 end)
 
 -- Pausing stops the audio outright, so this is the one moment a fork is
@@ -562,14 +577,14 @@ end)
 -- charger is most likely to be sitting in front of it.
 mp.observe_property("pause", "bool", function(_, paused)
     mark_dirty()
-    if paused then poll_power(false, 3) end
+    if paused then poll_power(3) end
 end)
 
 -- A seek flushes and refills the audio buffer anyway, so a fork inside that
 -- window has nothing to interrupt.
 mp.register_event("seek", function()
     mark_dirty()
-    poll_power(false, 15)
+    poll_power(15)
 end)
 
 -- Both of these drop frames for reasons that are nothing to do with sustained
@@ -590,10 +605,10 @@ end
 -- paused for an hour and the charger came out in the meantime.
 if o.power_aware and o.power_poll_seconds > 0 then
     mp.add_periodic_timer(o.power_poll_seconds, function()
-        if mp.get_property_bool("pause") then poll_power(false, 3) end
+        if mp.get_property_bool("pause") then poll_power(3) end
     end)
 end
 
-poll_power(true)
+poll_power()
 
 mp.add_key_binding(nil, "cycle-video-quality", cycle)

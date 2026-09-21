@@ -255,8 +255,19 @@ Two traps, both of which caught an earlier version of this section:
   with it, a completely fictitious 42.6% for the full chain on AC. Five rounds
   out of eight were thrown out this way on an otherwise idle-looking machine.
 
-It switches live, announced by a one-line OSD — an unexplained softer frame
-otherwise reads as a bug.
+It switches live, and **silently**. There is exactly one `mp.osd_message` call
+in the script and it sits in `cycle()`, so the only thing that ever puts a line
+on screen is a press of <kbd>y</kbd> — never a load-driven rung change, never
+plugging in or unplugging, never startup.
+
+⚠️ That deliberately **reverses** the rule the rest of this file argues for, that
+a picture changing by itself should say why or it reads as a fault. It is the
+user's call on their own player (2026-09-21), made knowing that is the trade:
+they would rather never see the line than be told about a change they did not
+ask for. **Do not add an OSD back here as a fix for an unexplained picture
+change** — see THE OSD RULE at the top of `scripts/video-quality.lua`.
+Nothing is lost for diagnosis: every chain and power change still goes to the
+log through `msg.info`, so `log-file=` recovers the whole history after the fact.
 
 #### How it decides: mpv's own dropped frames, not a GPU meter
 

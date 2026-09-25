@@ -371,7 +371,7 @@
       <li><span><b>The window never opens bigger than 90% of the screen.</b> Left to itself mpv sizes the window to the video, and a 1080p file on a 1080p screen gives a window exactly as large as the display — so <kbd>f</kbd> appears to do nothing. Capping it keeps fullscreen visibly different.</span></li>
       <li><span><b>On a TV, fullscreen covers the desktop</b> rather than taking its own Space. The trade is a faint hairline at the screen edge, which nobody sees from a sofa. <kbd>p</kbd> switches it either way.</span></li>
       <li><span><b>Moving the mouse shows a slim progress bar</b>, not the full control bar. The controls — buttons, filename, timers — only appear when you push the pointer right down to the bottom edge of the screen, and they go away again after two seconds of a stationary mouse. Left to itself mpv keeps them up indefinitely while the pointer rests on them.</span></li>
-      <li><span><b>The elapsed time sits under the bar</b>, at the bottom of the screen. Short messages like “Subtitles off” or “Zoom to fill” still appear in the top-left corner, where mpv puts them.</span></li>
+      <li><span><b>The bar sits in the black band under the picture.</b> In fullscreen most videos leave an empty black band below the picture, and that is where the progress bar — and the flat volume bar you get from scrolling — now goes, so neither covers the picture. The time splits either side of the progress bar: time so far on the left, total on the right. When there is no band — in a window, after <kbd>g</kbd>, or with a video that fills the screen — the bar sits just above the bottom edge as before, with the time underneath it. Subtitles stay where they were either way: they already sat above the bar, so moving it down only moved it further from them. Short messages like “Subtitles off” or “Zoom to fill” still appear in the top-left corner, where mpv puts them.</span></li>
       <li><span><b>Zoom is remembered per film.</b> Unlike subtitles, a film you zoomed with <kbd>g</kbd> is still zoomed when you come back to it.</span></li>
       <li><span><b>Speed is not remembered</b> — the opposite of zoom, and on purpose. Every video you open starts at normal speed; only a playlist moving on by itself carries the speed across. See section 02.</span></li>
       <li><span><kbd>Shift</kbd><span class="plus">+</span><kbd>Q</kbd> <b>saves and quits</b> — the same as closing normally, kept because it's an mpv habit.</span></li>
@@ -408,7 +408,7 @@
           <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
           <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page, and a note for the one bound elsewhere</td></tr>
           <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
-          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, audio-language choosing, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip, sharpening animation</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, keeping the bar in the black band, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, audio-language choosing, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip, sharpening animation</td></tr>
           <tr><td class="path">~/.config/mpv/shaders/</td><td class="desc">The Anime4K picture filters, used only on animated shows</td></tr>
           <tr><td class="path">~/.config/mpv/script-opts/</td><td class="desc">Settings for the scripts — including which folders count as animation, and how the sharpening picks its setting</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
@@ -422,7 +422,7 @@
   </section>
 
   <footer>
-    Built on mpv 0.41.0 (Homebrew) · macOS · 20 September 2026
+    Built on mpv 0.41.0 (Homebrew) · macOS · 25 September 2026
   </footer>
 
 </div>

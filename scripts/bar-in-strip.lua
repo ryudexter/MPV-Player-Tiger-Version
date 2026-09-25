@@ -1,4 +1,5 @@
--- Put the green bar in the black strip under the picture.
+-- Put the green bar in the black strip under the picture, and the subtitles
+-- just above it.
 --
 -- A 16:9 video in fullscreen on this panel does not fill it: the drawable is
 -- 3456x2168, the picture 1944 rows, and 112 rows of black are left below it.
@@ -26,6 +27,16 @@
 -- own height off the bottom edge instead, which keeps it below the subtitle
 -- for any strip.
 --
+-- ...and they follow it down. That 68 exists to clear the bar at 0.90, so with
+-- the bar in the strip it was clearing a bar that was no longer there, and the
+-- user asked for the subtitles lower. While the bar is in the strip their
+-- bottom edge sits SUB_GAP above the bar's top edge: on 16:9 that is the bottom
+-- edge of the picture, where they used to sit about a line higher; on a wide
+-- film they drop lower in the black strip. With no strip the bar is back at
+-- 0.90 and so are they, at mpv.conf's value. They only ever move down from it.
+-- sub-margin-y moves plain-text subtitles only; styled (ASS) subtitles place
+-- themselves inside the picture and are left alone.
+--
 -- The time readout mouse-progress.lua draws used to sit in this strip too. It
 -- reads the geometry published here (user-data/bar-in-strip) and splits itself
 -- either side of the bar while the bar is down here.
@@ -35,12 +46,16 @@ local mp = require 'mp'
 -- mpv.conf's spot, used whenever there is no strip. Read before anything
 -- below changes it, so mpv.conf stays the one place that sets it.
 local FALLBACK = mp.get_property_number("osd-bar-align-y", 0.9)
+-- The same for the subtitles: mpv.conf's margin, which clears the bar at 0.90.
+local SUB_FALLBACK = mp.get_property_number("sub-margin-y", 68)
 
 -- Both are fractions of the bar's own height, outline included.
 local MIN_GAP = 0.15   -- the strip must leave this much free above AND below it
 local MAX_GAP = 0.5    -- in a taller strip, the most it sits off the bottom edge
 
-local last_align = nil
+local SUB_GAP = 0.01   -- subtitles to the bar's top edge, fraction of the height
+
+local last_align, last_sub = nil, nil
 
 local function place()
     local d = mp.get_property_native("osd-dimensions")
@@ -56,7 +71,7 @@ local function place()
     local border = mp.get_property_number("osd-bar-outline-size", 0.5) * h / 288
     local full   = bar_h + 2 * border
 
-    local align, info = FALLBACK, { strip = false }
+    local align, info, sub = FALLBACK, { strip = false }, SUB_FALLBACK
     if mb >= full * (1 + 2 * MIN_GAP) then
         local gap = math.min((mb - full) / 2, full * MAX_GAP)
         local cy  = h - gap - full / 2
@@ -67,11 +82,23 @@ local function place()
         -- outer edges, outline included, in window pixels
         info = { strip = true, cy = cy, x1 = left - border,
                  x2 = left + bar_w + border, height = full }
+        -- sub-margin-y counts from the WINDOW's bottom edge only while
+        -- sub-use-margins lets subtitles into the black; otherwise it counts
+        -- from the picture's, which is above the strip already. Its unit is a
+        -- scaled pixel, 720 of them to the window's height.
+        if mp.get_property_bool("sub-use-margins", true) then
+            local above_bar = h - (cy - full / 2) + SUB_GAP * h
+            sub = math.min(SUB_FALLBACK, math.ceil(above_bar * 720 / h))
+        end
     end
 
     if align ~= last_align then
         mp.set_property_number("osd-bar-align-y", align)
         last_align = align
+    end
+    if sub ~= last_sub then
+        mp.set_property_number("sub-margin-y", sub)
+        last_sub = sub
     end
     mp.set_property_native("user-data/bar-in-strip", info)
 end

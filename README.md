@@ -1,7 +1,7 @@
 # mpv — macOS setup
 
 A hand-tuned [mpv](https://mpv.io) configuration for macOS: a single-instance
-launcher, fourteen Lua scripts, and a `.app` wrapper that makes mpv behave like
+launcher, nineteen Lua scripts, and a `.app` wrapper that makes mpv behave like
 a native double-click-to-play media player.
 
 Every value in `mpv.conf` carries a comment explaining *why* it is set, usually
@@ -19,7 +19,8 @@ with the measurement that justified it.
 | **Folder is the playlist** | Opening one video queues the whole folder (videos only — no cover art as a "video"). |
 | **The folder loops, the session doesn't end** | Stock mpv terminates at the end of the last entry, which here would take the window, the playlist and the single instance with it. `loop-playlist=inf` wraps back to the first video instead; with shuffle on, the script deals a fresh random cycle rather than wrapping. A file that played through resumes at 0 on the next lap, because mpv drops its resume point at EOF. |
 | **Vertical volume bar** | Observes the `volume` *property*, so any new volume binding gets the bar for free. |
-| **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar with the time underneath. |
+| **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar and the time. |
+| **The bar sits in the black strip** | A 16:9 video in fullscreen leaves an empty black strip under the picture, and stock mpv's bar sits at a fixed height of the *window*, so it lands over the bottom of the picture instead. Here the seek bar and the trackpad's volume bar drop into that strip, with the elapsed time left of the bar and the duration right of it, and come back up the moment there is no strip (a window, `g`, a video that fills the screen). Subtitles are untouched: they already sat above the bar, so it only moves away from them — and on a wide film, where they do sit in the strip, the bar goes below them. |
 | **Seek thumbnails** | Hover the bottom strip and the frame at that point appears above the pointer. mpv has none of its own, and its built-in OSC cannot drive thumbfast — usually you have to adopt uosc's whole UI to get this. Here it is one 86-line bridge. |
 | **Skip the intro without chapters** | `/` runs the file at 100x behind a black frame until the audio drops below -30dB, which on a normal episode is the gap between the title sequence and the first line. Most files carry no chapter marks, so the chapter keys cannot do this. Lands within 24ms of where ffmpeg's own `silencedetect` puts the silence. |
 | **Clip export** | `Cmd`+`t` sets an in and an out point on the playing file and writes the section to the Desktop as an h264 mp4, without leaving the player. Encoding is a second headless mpv, so the clip inherits the tracks and filters you are actually watching. |
@@ -84,7 +85,8 @@ scripts/
   shuffle-mode.lua      permutation-cycle shuffle + history for z
   fullscreen-mode.lua   native fullscreen on the laptop, legacy on a TV; p overrides
   vertical-volume.lua   vertical volume bar
-  mouse-progress.lua    seek bar on mouse move, time readout at the bottom
+  mouse-progress.lua    seek bar on mouse move, time readout beside or under it
+  bar-in-strip.lua      moves the bar into the black strip under the picture
   osc-idle-hide.lua     hides the control bar and cursor after 2s of stillness
   reveal-in-finder.lua  i → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions

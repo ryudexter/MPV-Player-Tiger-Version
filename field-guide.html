@@ -176,7 +176,7 @@
       </li>
       <li>
         <p class="t">Open more videos whenever you like.</p>
-        <p class="d">A second video never opens a second window. It joins the queue and starts playing, and the first one stays available behind it.</p>
+        <p class="d">A second video never opens a second window. It joins the queue and starts playing, and the first one stays available behind it. If mpv is already open somewhere you can't see — full screen on its own Space, behind other windows, minimised or hidden — it comes to the front with the new video playing, so you never have to go looking for it.</p>
       </li>
       <li>
         <p class="t">Close it whenever. Just close it.</p>
@@ -253,7 +253,7 @@
       </div>
     </div>
     <div class="note">
-      Re-clicking a video you already have open <b>does not restart it</b>. It returns to where you were, lifts the pause, and doesn't add a duplicate to the queue.
+      Re-clicking a video you already have open <b>does not restart it</b>. It brings mpv to the front, returns to where you were, lifts the pause, and doesn't add a duplicate to the queue.
     </div>
   </section>
 
@@ -392,6 +392,7 @@
       <li><span><b>The sharpening follows the machine, not the cable.</b> The full treatment needs more graphics power than this Mac reliably has spare — and how much is spare changes by the minute. Plugging in is itself what sets macOS off on the background work it saves up for the wall socket, so being on the charger is often when there is <i>least</i> going spare, not most: caught on 20 September 2026 with no video playing at all, the photo analyser had a processor core pinned for 41 hours straight and a quarter of the graphics chip was already spoken for. So there are now three settings — the full treatment, a lighter one, and off — and it moves between them by watching whether the picture is actually keeping up. Lose more than a fiftieth of the frames and it steps down at once; go a clear minute without losing any and it climbs back up one. Unplugged it stays off, because that work comes straight out of the battery for a picture you did not ask for, and <kbd>y</kbd> turns it back on by hand. It does all of this <b>without saying anything on screen</b> — the only time you will see a message about the sharpening is when you press <kbd>y</kbd> yourself. It deliberately does <b>not</b> go and ask the system anything while the sound is playing: that kind of check used to make the audio skip, which is heard as a thump, so this one only reads numbers mpv is already keeping. An earlier version of this page called the full treatment free; that was measured plugged in, on a quiet machine.</span></li>
       <li><span><b>On battery it also stops drawing frames you cannot see.</b> This screen refreshes 120 times a second; a film has only 24 new frames a second. Keeping step with the screen rather than the film means four out of every five trips through the whole picture pipeline redraw a frame that is already on screen. On battery it keeps step with the film instead — <b>about half the graphics work, for a picture that is identical pixel for pixel</b>. The cost is a very slight hitch roughly every 8 seconds, which is the thing keeping step with the screen was there to remove. On the charger, nothing changes.</span></li>
       <li><span><b>One window, always.</b> Selecting a whole folder and opening it can't spawn a second player — the launcher takes a lock so only one instance is ever created.</span></li>
+      <li><span><b>Opening a video takes you to it.</b> macOS won't let an app that is sitting in the background put itself in front — mpv has a setting that asks for exactly that, and macOS simply ignores it. So the launcher asks macOS itself, the way clicking an app in the Dock does, and macOS switches to mpv's full-screen Space to show it. Only opening something does this: an episode moving on by itself never pulls you away from what you are doing.</span></li>
       <li><span><b>Thumbnails for MKV and WebM</b>, via QuickLook Video. macOS can't preview those formats on its own.</span></li>
     </ul>
   </section>
@@ -413,6 +414,7 @@
           <tr><td class="path">~/.config/mpv/script-opts/</td><td class="desc">Settings for the scripts — including which folders count as animation, and how the sharpening picks its setting</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>
           <tr><td class="path">/Applications/mpv.app</td><td class="desc">The wrapper Finder opens, plus the purple document icons</td></tr>
+          <tr><td class="path">~/.config/mpv/app/mpv-player.app</td><td class="desc">What the player itself runs from, so that macOS can bring it to the front. Never appears under Open With or in Spotlight</td></tr>
         </tbody>
       </table>
     </div>
@@ -422,7 +424,7 @@
   </section>
 
   <footer>
-    Built on mpv 0.41.0 (Homebrew) · macOS · 25 September 2026
+    Built on mpv 0.41.0 (Homebrew) · macOS · 26 September 2026
   </footer>
 
 </div>

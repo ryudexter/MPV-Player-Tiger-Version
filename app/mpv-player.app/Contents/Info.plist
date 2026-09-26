@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  The PLAYER's bundle - not the wrapper Finder opens (that is /Applications/mpv.app).
+  mpv-open starts the long-lived mpv through Contents/MacOS/mpv, a symlink to
+  Homebrew's binary, so macOS registers the running player as this app. That is
+  the only reason it exists: `open -a` on a running app brings it to the front,
+  onto its fullscreen Space, even when asked from the background - and a bare
+  binary cannot be named to `open -a` at all. No document types on purpose, so
+  it never shows up under Open With; it lives in a dot-folder, so Spotlight and
+  Launchpad never list it either.
+-->
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>io.mpv.player</string>
+	<key>CFBundleName</key>
+	<string>mpv</string>
+	<key>CFBundleDisplayName</key>
+	<string>mpv</string>
+	<key>CFBundleExecutable</key>
+	<string>mpv</string>
+	<key>CFBundleIconFile</key>
+	<string>mpv</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>

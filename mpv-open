@@ -12,12 +12,20 @@ Behaviour:
   * instance running         -> add the files to its playlist and play them
   * file already in playlist -> jump to it instead of adding a duplicate
   * file already playing     -> do nothing, so it keeps its position
+  * instance running         -> and bring it to the front, switching to its
+                                fullscreen Space if that is where it is
 """
 import fcntl, json, os, socket, subprocess, sys, time
 
 SOCK  = "/tmp/mpv-single.sock"
 LOCK  = "/tmp/mpv-single.lock"
-MPV   = "/opt/homebrew/bin/mpv"
+# The player is started through a symlink to Homebrew's binary inside its own
+# app bundle, so macOS knows the running player as an app. Only an app can be
+# brought to the front from here - see bring_forward().
+BUNDLE = os.path.expanduser("~/.config/mpv/app/mpv-player.app")
+MPV    = BUNDLE + "/Contents/MacOS/mpv"
+if not os.path.exists(MPV):              # symlink broken or bundle gone: still
+    MPV = "/opt/homebrew/bin/mpv"        # play, just without the raise
 FLAGS = ["--force-window=immediate",
          "--input-ipc-server=" + SOCK,
          "--focus-on=all"]
@@ -102,7 +110,41 @@ def push(files):
         cmd(["set_property", "speed", 1.0])
 
     cmd(["set_property", "window-minimized", False])
+    focused = cmd(["get_property", "focused"])
+    pid     = cmd(["get_property", "pid"])
     s.close()
+    if not focused:
+        bring_forward(pid)
+
+def bring_forward(pid):
+    """Put the running player in front of whatever the user is in.
+
+    mpv's own --focus-on=all asks macOS for exactly this on every new file, and
+    macOS refuses it: since macOS 14 an app in the background cannot bring
+    itself forward. Measured 2026-09-26 with mpv fullscreen on its own Space
+    and Finder in front - NSApp.activate (what focus-on does),
+    NSRunningApplication activateWithOptions and `lsappinfo setfront` all left
+    Finder in front. `open -a` on the running app is honoured, and switches to
+    its fullscreen Space to do it, in ~0.08s - also from a window that is
+    behind others, un-minimised, or hidden. But `open -a` names an app bundle,
+    which a bare binary is not: hence BUNDLE.
+    """
+    if not pid:
+        return
+    try:
+        # Only when macOS has THIS process down as our bundle. An instance
+        # started any other way (a bare binary, or from before the bundle
+        # existed) is not, and `open -a` then raises nothing: it launches a
+        # second, empty player from the bundle, which quits at once for want
+        # of a file (measured - the log shows the launch and the exit).
+        info = subprocess.run(["/usr/bin/lsappinfo", "info", "-only", "bundlepath", str(pid)],
+                              capture_output=True, text=True, timeout=5).stdout
+        if not any('bundle path="%s"' % p in info for p in (BUNDLE, norm(BUNDLE))):
+            return
+        subprocess.run(["/usr/bin/open", "-a", BUNDLE], timeout=10,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
 
 def launch(files, extra=None):
     try:

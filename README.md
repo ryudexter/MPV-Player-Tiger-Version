@@ -15,6 +15,7 @@ with the measurement that justified it.
 | **Back goes *back*** | While shuffled, `z` walks the history of what shuffle actually played — browser-style — not playlist order. |
 | **Playlist moves keep your position** | Stock mpv only writes the resume point on quit, so `next`/`prev` silently lose it. Here `x`/`z` write it first. |
 | **One window, always** | The launcher keeps a single long-lived mpv; opening a file adds to the running instance instead of spawning another. |
+| **Opening a file takes you to it** | With mpv already running somewhere out of sight — typically forgotten in its own fullscreen Space — a double-click used to start the video playing where you could not see it. Now the player comes to the front, switching to its fullscreen Space. mpv's own `--focus-on=all` asks macOS for exactly this and is refused, because since macOS 14 an app in the background cannot bring itself forward; `open -a` on the running app is honoured, so the player runs from a tiny app bundle that `open -a` can name. An episode moving on by itself still never pulls you back. |
 | **Speed never sticks** | Playback speed is a *right now* choice. Stock mpv saves it per file in the resume data, so a show watched once at 4x reopens at 4x for good. Here every file you open starts at 1x — while an episode auto-advancing inside a playlist keeps whatever speed you set, so a binge is not interrupted. |
 | **Folder is the playlist** | Opening one video queues the whole folder (videos only — no cover art as a "video"). |
 | **The folder loops, the session doesn't end** | Stock mpv terminates at the end of the last entry, which here would take the window, the playlist and the single instance with it. `loop-playlist=inf` wraps back to the first video instead; with shuffle on, the script deals a fresh random cycle rather than wrapping. A file that played through resumes at 0 on the next lap, because mpv drops its resume point at EOF. |
@@ -103,6 +104,8 @@ app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source
   icons/                13 hand-made document icons
+  mpv-player.app/       the bundle the PLAYER runs from, so it can be brought
+                        to the front (MacOS/mpv -> /opt/homebrew/bin/mpv)
 ```
 
 ## Restoring on a new Mac
@@ -123,6 +126,15 @@ copy `app/Info.plist` over `Contents/Info.plist`, drop `app/icons/*.icns` into
 > purpose. Editing anything inside `mpv.app` breaks its ad-hoc signature, and
 > re-signing changes the cdhash macOS ties privacy grants to — which brings the
 > "would like to access files in your Desktop folder" prompt back.
+
+`app/mpv-player.app` needs no building: it is an `Info.plist` and two
+symlinks, one to Homebrew's `mpv` and one to `app/icons/mpv.icns`, and git
+restores both. It is a different bundle from the wrapper — the wrapper is what
+Finder opens, this is what the long-lived player runs from — and it claims no
+file types, so it never appears under Open With, and Spotlight does not index
+dot-folders, so searching "mpv" still finds only the wrapper (checked with
+`mdfind`). If it goes missing the launcher falls back to the bare binary and
+everything works except the raise.
 
 ## Seek thumbnails
 
@@ -612,6 +624,24 @@ Things that cost real time here, all recorded in the config comments too:
   to 0 instead when `go_forward` reports it could not move.
 - The launcher exposes a permanent IPC socket at `/tmp/mpv-single.sock` — the
   way to inspect a live session without touching the config.
+- **A background app cannot bring itself to the front** (macOS 14's
+  "cooperative activation"). Measured with mpv fullscreen on its own Space and
+  Finder in front: `NSApp.activate` (what `--focus-on=all` calls),
+  `NSRunningApplication activateWithOptions:` and `lsappinfo setfront` all
+  return success and leave Finder in front. `open -a <bundle>` on the running
+  app is honoured — Space switch included, ~0.08s — also for a window that is
+  behind others, minimised or hidden. It needs a bundle to name, so the player
+  runs through `app/mpv-player.app/Contents/MacOS/mpv`, a symlink: macOS then
+  registers the running process as that app (`lsappinfo info <pid>` shows the
+  bundle path). A symlink changes nothing else — mpv only switches to its own
+  bundle behaviour on `MPVBUNDLE=true`, and privacy prompts are still charged
+  to the wrapper, because a child inherits its parent's responsible process
+  whatever it is.
+- `open -a` on that bundle while the running mpv was **not** started from it
+  raises nothing: it launches a second, empty player, which quits at once for
+  want of a file. The launcher asks `lsappinfo` first. Name the bundle by path,
+  not with `open -b`: that resolves the ID through Launch Services' database,
+  and a test copy of the bundle under `/tmp` was never findable there (rc 1).
 - mpv's builtin `select.lua` menus (`Ctrl`+`p`, and the playlist selector inside
   it) install a **forced** input section that claims every printable key for
   their search box. While one is open, `0` is typed into the filter and never

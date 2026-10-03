@@ -10,6 +10,8 @@ cache/
 # Single remembered sound level (scripts/global-sound.lua). Machine state, not
 # config - and it changes every time the volume keys are touched.
 sound-state.json
+# The remembered p choice (scripts/fullscreen-mode.lua). Machine state too.
+fullscreen-state.json
 
 # Subtitles downloaded for a video whose own folder is read-only
 # (scripts/subtitle-fetch.lua falls back to here). Someone else's work, and

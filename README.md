@@ -84,7 +84,7 @@ scripts/
   thumbfast.lua         upstream frame generator (po5/thumbfast, MPL-2.0)
   seek-thumbnail.lua    bridges the pointer to thumbfast
   shuffle-mode.lua      permutation-cycle shuffle + history for z
-  fullscreen-mode.lua   native fullscreen on the laptop, legacy on a TV; p overrides
+  fullscreen-mode.lua   native fullscreen on the laptop, legacy on a TV; p overrides, remembered per screen
   vertical-volume.lua   vertical volume bar
   mouse-progress.lua    seek bar on mouse move, time readout beside or under it
   bar-in-strip.lua      moves the bar into the black strip, subtitles just above it

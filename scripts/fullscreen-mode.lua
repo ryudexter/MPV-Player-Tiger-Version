@@ -1,5 +1,5 @@
 -- How fullscreen behaves, chosen automatically per display, and overridable
--- with p (bound in input.conf).
+-- with p (bound in input.conf). A p choice is remembered across restarts.
 --
 --   native-fs=yes  fullscreen gets its own Space, the usual macOS behaviour
 --   native-fs=no   fullscreen just covers the desktop you are already on
@@ -25,13 +25,24 @@
 -- then toggling fullscreen from inside a native fullscreen Space killed mpv
 -- outright (verified 2026-08-27). Every change here therefore goes:
 --     leave fullscreen -> wait until it has really left -> flip -> re-enter.
+--
+-- Remembering p
+-- -------------
+-- A p press is saved to fullscreen-state.json and wins over the automatic rule
+-- from then on, including after mpv is closed and opened again. It is kept
+-- separately for the built-in panel and for external screens, so choosing
+-- "this desktop" on the laptop does not also decide what happens on the TV,
+-- and the other way round. A kind of screen p was never pressed on still
+-- follows the automatic rule. Delete the file to go back to automatic.
 
-local mp = require 'mp'
+local mp    = require 'mp'
+local utils = require 'mp.utils'
 
-local SETTLE     = 0.35   -- margin after the window reports it left fullscreen
-local switching  = false
-local overridden = false  -- p was pressed: stop auto-managing until displays change
-local seen       = nil    -- last display set, to spot real changes
+local PATH      = mp.command_native({"expand-path", "~~state/fullscreen-state.json"})
+local SETTLE    = 0.35   -- margin after the window reports it left fullscreen
+local switching = false
+local seen      = nil    -- last display set, to spot real changes
+local saved     = {}     -- p choices: { builtin = bool, external = bool }
 
 -- Every display mpv reports is the built-in panel?
 local function builtin_only()
@@ -41,6 +52,43 @@ local function builtin_only()
         if not tostring(n):find("Built%-in") then return false end
     end
     return true
+end
+
+local function kind()
+    return builtin_only() and "builtin" or "external"
+end
+
+-- What native-fs should be on these screens: the p choice made for this kind
+-- of screen if there is one, else the automatic rule.
+local function wanted()
+    local v = saved[kind()]
+    if v ~= nil then return v end
+    return kind() == "builtin"
+end
+
+local function restore()
+    local f = io.open(PATH, "r")
+    if not f then return end                 -- p never pressed: nothing saved
+    local raw = f:read("*a")
+    f:close()
+    local st = utils.parse_json(raw or "")
+    if type(st) ~= "table" then
+        mp.msg.warn("ignoring unreadable " .. PATH)
+        return
+    end
+    for _, k in ipairs({"builtin", "external"}) do
+        if type(st[k]) == "boolean" then saved[k] = st[k] end
+    end
+end
+
+local function store()
+    local f = io.open(PATH, "w")
+    if not f then
+        mp.msg.error("could not write " .. PATH)
+        return
+    end
+    f:write(utils.format_json(saved))
+    f:close()
 end
 
 local function label()
@@ -85,13 +133,17 @@ local function apply(target, announce)
     once_out()
 end
 
--- p: flip by hand, and stop auto-managing until the displays change, so the
--- automatic rule cannot immediately undo what was just asked for.
+-- p: flip by hand, and save it for this kind of screen so neither the
+-- automatic rule nor a restart undoes what was just asked for.
 mp.add_key_binding(nil, "toggle-fullscreen-mode", function()
     if switching then return end
-    overridden = true
-    apply(not mp.get_property_bool("native-fs"), true)
+    local target = not mp.get_property_bool("native-fs")
+    saved[kind()] = target
+    store()
+    apply(target, true)
 end)
+
+restore()
 
 -- Follow the display the window is on: plugging in, unplugging, or dragging the
 -- window to another screen all land here.
@@ -101,6 +153,5 @@ mp.observe_property("display-names", "native", function()
     if key == seen then return end          -- same screens, nothing to decide
     local first = (seen == nil)
     seen = key
-    overridden = false                      -- new screen context, resume auto
-    apply(builtin_only(), not first)        -- silent on the very first call
+    apply(wanted(), not first)              -- silent on the very first call
 end)

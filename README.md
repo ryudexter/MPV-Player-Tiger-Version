@@ -63,6 +63,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `n` | even out loud and quiet passages (says on screen which way it went) |
 | `m` / `T` / `L` | mute / stay on top / loop this file — the message says True / False, not mpv's yes / no |
 | `i` | reveal the playing file in Finder |
+| `Cmd`+`Delete` | move the playing file to the Trash — Finder's crumpled-paper sound confirms it |
 | `0` `0` | reset the saved playback positions of this playlist (see trap 9) |
 
 `Space` still pauses. `Enter`, `>`, `<` and `9` are deliberately inert — they
@@ -92,7 +93,7 @@ scripts/
   osc-idle-hide.lua     hides the control bar and cursor after 2s of stillness
   reveal-in-finder.lua  i → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
-  trash-file.lua        Cmd+Delete → /usr/bin/trash, playback untouched
+  trash-file.lua        Cmd+Delete → /usr/bin/trash + Finder's trash sound, playback untouched
   video-quality.lua     Anime4K on animation only; y cycles auto/on/off
   audio-pick.lua        English soundtrack by default; l → next language
   subtitle-pick.lua     c → score every sub track and pick the best English one

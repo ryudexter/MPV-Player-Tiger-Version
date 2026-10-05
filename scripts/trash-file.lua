@@ -23,12 +23,22 @@
 -- The subprocess is ASYNC, like reveal-in-finder.lua: the sync `subprocess`
 -- command blocks mpv's main thread until the child exits, which is a visible
 -- hitch in playback.
+--
+-- A successful trash plays Finder's own "move to trash" sound, so the press
+-- is confirmed without looking at the screen. Asked for 2026-10-05. It plays
+-- only once the file is really in the Trash - a failure stays silent and says
+-- so on screen - and through afplay rather than mpv, so it is heard even with
+-- mpv muted. Set sound= (empty) in script-opts/trash_file.conf to switch it
+-- off, or point it at any other sound file.
 
 local options = require 'mp.options'
 
 local opts = {
     confirm = false,      -- yes = require a second press within confirm_secs
     confirm_secs = 3,
+    -- played on success; empty = no sound
+    sound = "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/finder/move to trash.aif",
+    sound_volume = 1,     -- afplay -v: 1 = the file's own level
 }
 options.read_options(opts, "trash_file")
 
@@ -108,6 +118,18 @@ local function shuffle_out_of_last_place(id)
     return false
 end
 
+-- Async for the same reason as the trash itself, and fire-and-forget: a
+-- missing or unplayable sound file must never turn a successful trash into an
+-- error, so afplay's result is not looked at.
+local function play_sound()
+    if opts.sound == "" then return end
+    mp.command_native_async({
+        name          = "subprocess",
+        args          = { "/usr/bin/afplay", "-v", tostring(opts.sound_volume), opts.sound },
+        playback_only = false,
+    }, function() end)
+end
+
 local function do_trash()
     local path = mp.get_property("path")
     if not path then
@@ -148,6 +170,7 @@ local function do_trash()
         end
 
         mp.msg.info("trashed " .. path)
+        play_sound()
         mp.commandv("delete-watch-later-config", path)
 
         local stranded = false

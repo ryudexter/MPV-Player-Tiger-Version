@@ -61,6 +61,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `Cmd`+`t` | cut a clip out of what's playing and save it to the Desktop |
 | `n` | even out loud and quiet passages (says on screen which way it went) |
+| `m` / `T` / `L` | mute / stay on top / loop this file — the message says True / False, not mpv's yes / no |
 | `i` | reveal the playing file in Finder |
 | `0` `0` | reset the saved playback positions of this playlist (see trap 9) |
 

@@ -1,4 +1,5 @@
--- One sound level for everything, remembered across launches.
+-- One sound level for everything, remembered across launches. Mute is NOT
+-- remembered: every launch starts unmuted.
 --
 -- mpv's watch-later saves `volume` and `mute` per FILE by default, so every
 -- video ended up with its own level. That is wrong twice over: turning a quiet
@@ -13,6 +14,13 @@
 --
 -- Writes are debounced, because holding a volume key fires the property
 -- observer on every step and there is no reason to touch the disk that often.
+--
+-- Mute used to be saved here too, so muting a video and quitting meant the
+-- next launch came up silent. Asked for 2026-10-05: mute lasts for the
+-- session only. Within one session it still carries from video to video (it
+-- is one player-wide setting, and mpv.conf keeps it out of watch-later), but
+-- quitting forgets it. A "mute" key left in an older sound-state.json is
+-- ignored, and the next save drops it.
 
 local utils = require 'mp.utils'
 
@@ -37,19 +45,12 @@ local function restore()
         local max = mp.get_property_number("volume-max") or 100
         mp.set_property_number("volume", math.max(0, math.min(st.volume, max)))
     end
-    if type(st.mute) == "boolean" then
-        mp.set_property_bool("mute", st.mute)
-    end
-    mp.msg.verbose(string.format("restored volume=%s mute=%s",
-        tostring(st.volume), tostring(st.mute)))
+    mp.msg.verbose("restored volume=" .. tostring(st.volume))
 end
 
 local function save()
     save_timer = nil
-    local st = {
-        volume = mp.get_property_number("volume"),
-        mute   = mp.get_property_bool("mute"),
-    }
+    local st = { volume = mp.get_property_number("volume") }
     if st.volume == nil then return end
     local f = io.open(PATH, "w")
     if not f then
@@ -68,7 +69,6 @@ end
 
 restore()
 mp.observe_property("volume", "number", schedule)
-mp.observe_property("mute", "native", schedule)
 ready = true
 
 -- a level changed inside the last DELAY seconds would otherwise be lost

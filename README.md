@@ -61,7 +61,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `f` / `p` | fullscreen / switch *how* fullscreen works |
 | `Cmd`+`t` | cut a clip out of what's playing and save it to the Desktop |
 | `n` | even out loud and quiet passages (says on screen which way it went) |
-| `m` / `T` / `L` | mute / stay on top / loop this file — the message says True / False, not mpv's yes / no |
+| `m` / `T` / `L` | mute / stay on top / loop this file — the message says True / False, not mpv's yes / no. Mute lasts until you quit: every launch starts unmuted |
 | `i` | reveal the playing file in Finder |
 | `Cmd`+`Delete` | move the playing file to the Trash — Finder's crumpled-paper sound confirms it |
 | `0` `0` | reset the saved playback positions of this playlist (see trap 9) |
@@ -99,7 +99,7 @@ scripts/
   subtitle-pick.lua     c → score every sub track and pick the best English one
   subtitle-fetch.lua    b → download a subtitle with the subliminal CLI
   subtitle-sync.lua     Alt+b → re-time it with the ffsubsync CLI
-  global-sound.lua      one volume level for everything, not one per file
+  global-sound.lua      one volume level for everything, not one per file; mute resets each launch
   skiptosilence.lua     / → fast-forward to the next silence (detuur, MIT, patched)
   webm.lua              Cmd+T → clip out a section (ekisu/mpv-webm, MIT, patched)
 app/

@@ -1,7 +1,7 @@
 # mpv — macOS setup
 
 A hand-tuned [mpv](https://mpv.io) configuration for macOS: a single-instance
-launcher, nineteen Lua scripts, and a `.app` wrapper that makes mpv behave like
+launcher, twenty Lua scripts, and a `.app` wrapper that makes mpv behave like
 a native double-click-to-play media player.
 
 Every value in `mpv.conf` carries a comment explaining *why* it is set, usually
@@ -18,7 +18,7 @@ with the measurement that justified it.
 | **Opening a file takes you to it** | With mpv already running somewhere out of sight — typically forgotten in its own fullscreen Space — a double-click used to start the video playing where you could not see it. Now the player comes to the front, switching to its fullscreen Space. mpv's own `--focus-on=all` asks macOS for exactly this and is refused, because since macOS 14 an app in the background cannot bring itself forward; `open -a` on the running app is honoured, so the player runs from a tiny app bundle that `open -a` can name. An episode moving on by itself still never pulls you back. |
 | **Speed never sticks** | Playback speed is a *right now* choice. Stock mpv saves it per file in the resume data, so a show watched once at 4x reopens at 4x for good. Here every file you open starts at 1x — while an episode auto-advancing inside a playlist keeps whatever speed you set, so a binge is not interrupted. |
 | **Folder is the playlist** | Opening one video queues the whole folder (videos only — no cover art as a "video"). |
-| **The folder loops, the session doesn't end** | Stock mpv terminates at the end of the last entry, which here would take the window, the playlist and the single instance with it. `loop-playlist=inf` wraps back to the first video instead; with shuffle on, the script deals a fresh random cycle rather than wrapping. A file that played through resumes at 0 on the next lap, because mpv drops its resume point at EOF. |
+| **The folder loops, the session doesn't end** | Stock mpv terminates at the end of the last entry, which here would take the window, the playlist and the single instance with it. `loop-playlist=inf` wraps back to the first video instead; with shuffle on, the script deals a fresh random cycle rather than wrapping. A file that played through resumes at 0 on the next lap, because mpv drops its resume point at EOF. A video *alone* in its folder is the exception — a lap of one is the same video forever — so it rewinds to its start and waits there, paused, in a small window; `Space` plays it again. |
 | **Vertical volume bar** | Observes the `volume` *property*, so any new volume binding gets the bar for free. |
 | **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar and the time. |
 | **The bar sits in the black strip** | A 16:9 video in fullscreen leaves an empty black strip under the picture, and stock mpv's bar sits at a fixed height of the *window*, so it lands over the bottom of the picture instead. Here the seek bar and the trackpad's volume bar drop into that strip, with the elapsed time left of the bar and the duration right of it, and come back up the moment there is no strip (a window, `g`, a video that fills the screen). Subtitles never meet it — they already sat above it — and while it is down there they come down too, to sit just above it: onto the bottom edge of the picture on 16:9, lower in the black on a wide film. With no strip they go back to clearing the bar where it then is. |
@@ -94,6 +94,7 @@ scripts/
   reveal-in-finder.lua  i → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
   trash-file.lua        Cmd+Delete → /usr/bin/trash + Finder's trash sound, playback untouched
+  single-video.lua      a lone video ends rewound + paused in a small window; Space replays
   video-quality.lua     Anime4K on animation only; y cycles auto/on/off
   audio-pick.lua        English soundtrack by default; l → next language
   subtitle-pick.lua     c → score every sub track and pick the best English one
@@ -622,8 +623,21 @@ Things that cost real time here, all recorded in the config comments too:
 - **`keep-open=always` means the script owns the end of the folder, so it must
   handle the case where there is nothing to deal.** A folder with a single
   video would otherwise sit paused on its last frame with shuffle on, because
-  the loop that would have restarted it never gets the chance. `on_eof` seeks
-  to 0 instead when `go_forward` reports it could not move.
+  the loop that would have restarted it never gets the chance. `on_eof` used to
+  seek to 0 and play on; since 2026-10-07 a lone video is not meant to restart,
+  so it leaves it paused and `single-video.lua` rewinds it, as with shuffle off.
+- **A lone video's end belongs to `keep-open`, so the loop has to step aside.**
+  `loop-playlist=inf` wraps a one-entry playlist onto itself, and `keep-open=yes`
+  loses that race (above). `single-video.lua` sets `loop-playlist=no` while the
+  playlist holds one entry and restores it when a second arrives.
+- **Rewind after `keep-open` has paused, not when `eof-reached` flips.** It is
+  still settling at that moment, and a seek sent into the gap can be undone:
+  measured on a 3s clip, 1 run in 5 stayed parked at 2.97s. Waiting for
+  `pause` as well: 9 of 9 landed on 0.
+- **Resize with `current-window-scale`, never `window-scale`.** The latter is the
+  option every later file is sized from, so one shrunken ending would shrink the
+  next video opened too. `current-window-scale` resizes the window and leaves the
+  option at 1 (measured: 640x360 → 480x270 points, `window-scale` still 1.0).
 - The launcher exposes a permanent IPC socket at `/tmp/mpv-single.sock` — the
   way to inspect a live session without touching the config.
 - **A background app cannot bring itself to the front** (macOS 14's

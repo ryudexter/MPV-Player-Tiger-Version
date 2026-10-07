@@ -220,9 +220,9 @@ local function jump_to_index(idx)
 end
 
 -- x: forward through the history if we have gone back, otherwise a new random.
--- Returns true if it actually moved, so the eof handler can tell "nothing else
--- to play" from a normal advance. opts.quiet suppresses the OSD for that case,
--- which is a keypress message, not something to flash at the end of every lap.
+-- Returns true if it actually moved. opts.quiet suppresses the "nothing else"
+-- OSD, which is a keypress message, not something to flash when a lone video
+-- simply ends.
 local function go_forward(opts)
     if hpos > 0 and hpos < #history then
         local idx = resolve(history[hpos + 1])
@@ -276,16 +276,14 @@ end
 
 -- End of a file. Normally this deals the next random video; if there is
 -- nothing to deal - a one-video folder, or every other entry has vanished -
--- restart this one instead. loop-playlist=inf would have done exactly that,
--- but keep-open=always stops mpv at the end of the file before the playlist
--- can run out, so this script owns the case now. Without it, a folder holding
--- a single video would sit paused on its last frame with shuffle on.
+-- it does nothing, and keep-open=always leaves the video paused at its end.
+-- scripts/single-video.lua takes it from there: it rewinds to 0, shrinks the
+-- window, and Space plays it again - the same as with shuffle off. Until
+-- 2026-10-07 this seeked to 0 and played on, which is the endless restart a
+-- lone video was asked to stop doing.
 local function on_eof(_, reached)
     if not (enabled and reached) then return end
-    if not go_forward({ quiet = true }) then
-        mp.commandv("seek", 0, "absolute", "exact")
-        mp.set_property_bool("pause", false)
-    end
+    go_forward({ quiet = true })
 end
 
 local function toggle()

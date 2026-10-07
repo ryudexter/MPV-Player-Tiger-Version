@@ -255,6 +255,9 @@
     <div class="note">
       Re-clicking a video you already have open <b>does not restart it</b>. It brings mpv to the front, returns to where you were, lifts the pause, and doesn't add a duplicate to the queue.
     </div>
+    <div class="note">
+      A video that is <b>alone in its folder doesn't loop</b>. When it finishes it goes back to its start and waits there, paused, in a small window (out of fullscreen) — press <kbd>Space</kbd> to watch it again from the beginning. A folder of several videos still carries on from the first one.
+    </div>
   </section>
 
   <section>
@@ -410,7 +413,7 @@
           <tr><td class="path">~/.config/mpv/mpv.conf</td><td class="desc">Settings — subtitles, seek bar, fullscreen, resume, folder queueing</td></tr>
           <tr><td class="path">~/.config/mpv/input.conf</td><td class="desc">Every keybinding on this page, and a note for the one bound elsewhere</td></tr>
           <tr><td class="path">~/.config/mpv/mpv-open</td><td class="desc">The one-window launcher. Lives outside the app on purpose</td></tr>
-          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, keeping the bar in the black band, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, audio-language choosing, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip, sharpening animation</td></tr>
+          <tr><td class="path">~/.config/mpv/scripts/</td><td class="desc">Vertical volume bar, shuffle mode, fullscreen mode, mouse progress bar, keeping the bar in the black band, seek thumbnails, control-bar idle hide, show in Finder, move to Trash, one global volume, audio-language choosing, subtitle choosing, downloading and re-timing, position expiry and reset, skipping the titles, saving a clip, sharpening animation, a lone video stopping at its start</td></tr>
           <tr><td class="path">~/.config/mpv/shaders/</td><td class="desc">The Anime4K picture filters, used only on animated shows</td></tr>
           <tr><td class="path">~/.config/mpv/script-opts/</td><td class="desc">Settings for the scripts — including which folders count as animation, and how the sharpening picks its setting</td></tr>
           <tr><td class="path">~/.config/mpv/watch_later/</td><td class="desc">One small file per remembered position</td></tr>

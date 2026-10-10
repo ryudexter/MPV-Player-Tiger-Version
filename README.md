@@ -63,7 +63,7 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 | `n` | even out loud and quiet passages (says on screen which way it went) |
 | `m` / `T` / `L` | mute / stay on top / loop this file — the message says True / False, not mpv's yes / no. Mute lasts until you quit: every launch starts unmuted |
 | `i` | reveal the playing file in Finder |
-| `Cmd`+`Delete` | move the playing file to the Trash — Finder's crumpled-paper sound confirms it |
+| `Cmd`+`Delete` | move the playing file to the Trash — a short, low paper crumple confirms it (`sounds/`) |
 | `0` `0` | reset the saved playback positions of this playlist (see trap 9) |
 
 `Space` still pauses. `Enter`, `>`, `<` and `9` are deliberately inert — they
@@ -93,7 +93,7 @@ scripts/
   osc-idle-hide.lua     hides the control bar and cursor after 2s of stillness
   reveal-in-finder.lua  i → open -R
   watch-later-reset.lua 0 0 → reset this playlist's saved positions
-  trash-file.lua        Cmd+Delete → /usr/bin/trash + Finder's trash sound, playback untouched
+  trash-file.lua        Cmd+Delete → /usr/bin/trash + a short crumple, playback untouched
   single-video.lua      a lone video ends rewound + paused in a small window; Space replays
   video-quality.lua     Anime4K on animation only; y cycles auto/on/off
   audio-pick.lua        English soundtrack by default; l → next language
@@ -103,6 +103,10 @@ scripts/
   global-sound.lua      one volume level for everything, not one per file; mute resets each launch
   skiptosilence.lua     / → fast-forward to the next silence (detuur, MIT, patched)
   webm.lua              Cmd+T → clip out a section (ekisu/mpv-webm, MIT, patched)
+sounds/
+  trash-crumple.wav     the Cmd+Delete sound: one crumple cut from Finder's, lower, 0.33 s
+  trash-*.wav           three alternatives - pick with sound= in script-opts/trash_file.conf
+  make-trash-sounds.sh  rebuilds all four from macOS's system sounds (needs ffmpeg)
 app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source

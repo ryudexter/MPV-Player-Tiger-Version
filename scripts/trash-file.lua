@@ -24,7 +24,7 @@
 -- command blocks mpv's main thread until the child exits, which is a visible
 -- hitch in playback.
 --
--- A successful trash plays a short crumple of paper, so the press is
+-- A successful trash plays a short, low "poof", so the press is
 -- confirmed without looking at the screen. Asked for 2026-10-05. It plays
 -- only once the file is really in the Trash - a failure stays silent and says
 -- so on screen - and through afplay rather than mpv, so it is heard even with
@@ -32,10 +32,11 @@
 -- off, or point it at any other sound file.
 --
 -- It started as Finder's own "move to trash", which turned out too long
--- (2.2 s, three crumples) and too loud (-0.6 dB peak). Since 2026-10-10 it is
--- one crumple cut out of that, a few semitones lower and about half as loud:
--- sounds/trash-crumple.wav, 0.33 s. sounds/make-trash-sounds.sh builds it and
--- three alternatives - trash-crumple-lower, trash-crumple-fuller, trash-poof.
+-- (2.2 s, three crumples) and too loud (-0.6 dB peak). On 2026-10-10 the user
+-- auditioned four shorter, lower replacements and picked the Dock's "poof"
+-- slowed ~5 semitones and about half as loud: sounds/trash-poof.wav, 0.47 s.
+-- sounds/make-trash-sounds.sh builds it and the three paper crumples that
+-- lost - trash-crumple, trash-crumple-lower, trash-crumple-fuller.
 
 local options = require 'mp.options'
 
@@ -43,7 +44,7 @@ local opts = {
     confirm = false,      -- yes = require a second press within confirm_secs
     confirm_secs = 3,
     -- played on success; empty = no sound. ~~/ is the mpv config folder.
-    sound = "~~/sounds/trash-crumple.wav",
+    sound = "~~/sounds/trash-poof.wav",
     sound_volume = 1,     -- afplay -v: 1 = the file's own level
 }
 options.read_options(opts, "trash_file")

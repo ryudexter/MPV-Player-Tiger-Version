@@ -5,11 +5,12 @@
 #
 # Finder's "move to trash" is 2.2 s of three separate crumples peaking at
 # -0.6 dB - too long and too loud as a confirmation (2026-10-10). Each sound
-# here is ONE crumple out of it, played slower so it sits lower, with the top
-# end rolled off, a short fade so it does not click, and the level set so they
-# are all equally loud: -38 LUFS short-term, 9 LU under Finder's (~half as loud
-# to the ear). Pick one with sound= in script-opts/trash_file.conf; finer
-# volume is sound_volume= there, no rebuild needed.
+# here is ONE short piece of a system sound, played slower so it sits lower,
+# with the top end rolled off, a short fade so it does not click, and the level
+# set so they are all equally loud: -38 LUFS short-term, 9 LU under Finder's
+# (~half as loud to the ear). The user heard all four and picked trash-poof,
+# which trash-file.lua plays by default. Pick another with sound= in
+# script-opts/trash_file.conf; finer volume is sound_volume= there, no rebuild.
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -28,11 +29,12 @@ make() {
     echo "made $out"
 }
 
-# the default: Finder's first, quietest crunch, ~4 semitones down - 0.33 s
+# Finder's first, quietest crunch, ~4 semitones down - 0.33 s
 make trash-crumple.wav        "finder/move to trash.aif"    0.00 0.26 0.80 3000 0.08 5
 # the same crunch ~5 semitones down and duller - 0.36 s
 make trash-crumple-lower.wav  "finder/move to trash.aif"    0.00 0.26 0.72 2200 0.08 5
 # Finder's second, bigger crunch, ~4 semitones down - 0.30 s
 make trash-crumple-fuller.wav "finder/move to trash.aif"    0.50 0.74 0.80 3000 0.08 3.4
-# not paper: the Dock's "poof", ~5 semitones down - a soft low whoosh, 0.47 s
+# THE DEFAULT. Not paper: the Dock's "poof", ~5 semitones down - a soft low
+# whoosh, 0.47 s
 make trash-poof.wav           "dock/poof item off dock.aif" 0.00 0.34 0.72 2500 0.10 -4

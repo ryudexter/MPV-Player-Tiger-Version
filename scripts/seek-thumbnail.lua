@@ -17,12 +17,14 @@
 --   * pointer above it  -> the slim seek bar, no thumbnail
 --   * pointer below it  -> the OSC, and a thumbnail above the pointer
 
-local mp    = require 'mp'
-local utils = require 'mp.utils'
+local mp      = require 'mp'
+local utils   = require 'mp.utils'
+local options = require 'mp.options'
 
 local BOTTOM_ZONE = 0.88   -- keep in step with mouse-progress.lua
 local GAP         = 12     -- px between the thumbnail and the OSC strip
 local MARGIN      = 8      -- px; keep the thumbnail clear of the screen edges
+local JITTER      = 4      -- px; smaller moves are noise (as in osc-idle-hide.lua)
 
 -- ---- where the OSC's seek bar actually is ----------------------------------
 --
@@ -95,6 +97,18 @@ end
 
 local info    = nil        -- last thumbfast-info payload (size, availability)
 local showing = false
+local last    = nil        -- where the pointer was last reported, {x, y}
+local anchor  = nil        -- where it was when this script last acted on it
+
+-- How long a preview may stay up with the pointer resting on the bar.
+-- osc-idle-hide.lua normally pulls it before then, together with the controls
+-- (see osc-idle-hidden below); this is the backstop for when that never
+-- arrives, so a preview cannot outlive the pointer that asked for it. It reads
+-- osc-idle-hide's own options, so raising idle_seek in
+-- script-opts/osc_idle_hide.conf still buys the extra time it promises.
+local idle_opts = { idle = 2, idle_seek = 2, seek_zone = 0.88, cursor_idle = 1 }
+options.read_options(idle_opts, "osc_idle_hide")
+local HOLD = idle_opts.idle_seek + 0.5
 
 -- thumbfast broadcasts its dimensions and whether it can work on this file
 -- (it disables itself for streams, cover art and audio-only).
@@ -103,19 +117,86 @@ mp.register_script_message("thumbfast-info", function(json)
     if type(v) == "table" then info = v end
 end)
 
-local function clear()
-    if not showing then return end
+local expire
+
+-- force: tell thumbfast even if this script thinks nothing is up. After the
+-- window changes size that belief is not worth trusting, and a spare clear
+-- costs nothing.
+local function clear(force)
+    if not showing and not force then return end
     mp.commandv("script-message-to", "thumbfast", "clear")
     showing = false
+    expire:kill()
 end
+
+expire = mp.add_timeout(HOLD, function() clear() end)
+expire:kill()
 
 -- osc-idle-hide.lua pulls the controls after 2s of a stationary pointer. The
 -- thumbnail is a separate overlay and would otherwise be left hanging there on
 -- its own, so it goes at the same moment.
-mp.register_script_message("osc-idle-hidden", clear)
+mp.register_script_message("osc-idle-hidden", function() clear() end)
+
+-- ---- when the window changes size ------------------------------------------
+--
+-- The preview is drawn at fixed window pixels, so it has to go whenever the
+-- window changes size: f, a lone video shrinking itself at its end
+-- (single-video.lua), dragging an edge. Left alone it stays at its old pixels,
+-- which after f is the middle of the picture.
+--
+-- Worse, mpv re-reports the pointer's LAST position the moment the window
+-- changes, before you have moved at all - and that position was measured
+-- against the OLD window. Traced 2026-10-15, a 960x540 window going
+-- fullscreen: fullscreen=true, then mouse-pos (3358,2144) left over from an
+-- earlier fullscreen spell, while osd-dimensions still said 960x540. To that
+-- window the spot is "in the bottom strip, past the bar's right end", so a
+-- preview of the film's LAST frame went up in its bottom-right corner, and
+-- stayed in the middle of the picture once the window had grown. That is the
+-- little box of end titles that kept turning up after f. mpv does the same
+-- when the pointer comes back into the window after leaving it.
+--
+-- So: drop the preview, and do not believe the pointer again until it really
+-- moves away from where it was last reported. Registered before mouse-pos on
+-- purpose - mpv hands a script its property changes in the order they were
+-- observed, so a resize and its replay arriving together are seen in that order.
+local osd_w, osd_h = nil, nil
+
+local function window_changed()
+    clear(true)
+    anchor = last
+end
+
+mp.observe_property("fullscreen", "bool", window_changed)
+
+mp.observe_property("osd-dimensions", "native", function(_, od)
+    if not od then return end
+    -- the margins change too (g, a new file's shape); only the size matters
+    if od.w == osd_w and od.h == osd_h then return end
+    osd_w, osd_h = od.w, od.h
+    window_changed()
+end)
 
 mp.observe_property("mouse-pos", "native", function(_, pos)
-    if not pos or not pos.hover then return clear() end
+    if not pos then return clear() end
+    last = { x = pos.x, y = pos.y }
+
+    -- Pointer left the window. When it comes back, mpv first re-reports this
+    -- spot (see above), so treat that as "not moved yet".
+    if not pos.hover then
+        anchor = last
+        return clear()
+    end
+
+    -- Not a real move: sensor noise from a resting finger, the 1px nudge
+    -- osc-idle-hide.lua replays, or mpv repeating an old position after the
+    -- window changed. Same 4px floor osc-idle-hide.lua uses, so a preview
+    -- cannot come back on its own under controls that stayed hidden.
+    if anchor and math.abs(pos.x - anchor.x) < JITTER
+              and math.abs(pos.y - anchor.y) < JITTER then
+        return
+    end
+    anchor = last
+
     if not info or info.disabled or not info.available then return clear() end
 
     local w, h = mp.get_osd_size()
@@ -150,7 +231,9 @@ mp.observe_property("mouse-pos", "native", function(_, pos)
                 string.format("%d", tx),
                 string.format("%d", ty))
     showing = true
+    expire:kill()
+    expire:resume()
 end)
 
 -- do not carry a stale preview across a file change
-mp.register_event("start-file", function() showing = false end)
+mp.register_event("start-file", function() showing = false; expire:kill() end)

@@ -22,7 +22,7 @@ with the measurement that justified it.
 | **Vertical volume bar** | Observes the `volume` *property*, so any new volume binding gets the bar for free. |
 | **Quiet OSC** | The control bar only appears when you hover the bottom edge, and hides after 2s of a parked pointer. Casual mouse movement shows just a slim seek bar and the time. |
 | **The bar sits in the black strip** | A 16:9 video in fullscreen leaves an empty black strip under the picture, and stock mpv's bar sits at a fixed height of the *window*, so it lands over the bottom of the picture instead. Here the seek bar and the trackpad's volume bar drop into that strip, with the elapsed time left of the bar and the duration right of it, and come back up the moment there is no strip (a window, `g`, a video that fills the screen). Subtitles never meet it — they already sat above it — and while it is down there they come down too, to sit just above it: onto the bottom edge of the picture on 16:9, lower in the black on a wide film. With no strip they go back to clearing the bar where it then is. |
-| **Seek thumbnails** | Hover the bottom strip and the frame at that point appears above the pointer. mpv has none of its own, and its built-in OSC cannot drive thumbfast — usually you have to adopt uosc's whole UI to get this. Here it is one 86-line bridge. |
+| **Seek thumbnails** | Hover the bottom strip and the frame at that point appears above the pointer. mpv has none of its own, and its built-in OSC cannot drive thumbfast — usually you have to adopt uosc's whole UI to get this. Here it is one small bridge script. |
 | **Skip the intro without chapters** | `/` runs the file at 100x behind a black frame until the audio drops below -30dB, which on a normal episode is the gap between the title sequence and the first line. Most files carry no chapter marks, so the chapter keys cannot do this. Lands within 24ms of where ffmpeg's own `silencedetect` puts the silence. |
 | **Clip export** | `Cmd`+`t` sets an in and an out point on the playing file and writes the section to the Desktop as an h264 mp4, without leaving the player. Encoding is a second headless mpv, so the clip inherits the tracks and filters you are actually watching. |
 | **Subtitles from the internet** | `b` downloads a subtitle for the playing file and switches it on — mpv's answer to VLC's VLsub, which mpv has no equivalent of out of the box. Anonymous sources only, no account anywhere. |
@@ -155,9 +155,24 @@ costs nothing extra — nothing runs until you actually hover the bar.
 `seek-thumbnail.lua` is the local half: it watches the pointer, maps its x onto
 the timeline, and tells thumbfast where to draw.
 
-`osc-idle-hide.lua` gets a second, longer timeout for this strip (6s instead of
-2s), because looking at a preview means holding the pointer still, and at the
-normal 2s the thumbnail vanished exactly when you stopped to read it.
+A preview goes with the controls after 2s of a still pointer (`osc-idle-hide.lua`
+sends `osc-idle-hidden`). Its `idle_seek` option once held this strip to 6s, but
+the bottom strip is the only way to summon the controls at all, so that branch
+was always taken; both timeouts are 2s now. Raise `idle_seek` in
+`script-opts/osc_idle_hide.conf` to read previews for longer — `seek-thumbnail.lua`
+reads the same option for its own backstop (`idle_seek` + 0.5s), so a preview
+never outlives the pointer even if that message is missed.
+
+**After `f` (or any resize) the preview is dropped, and the pointer is not
+believed again until it really moves.** mpv re-reports the pointer's last
+position the instant the window changes size, still measured against the OLD
+window. Going fullscreen ↔ windowed, that stale spot often lands in the new
+window's bottom strip past the bar's right end, so a preview of the film's
+**last frame** went up — and, drawn at fixed pixels, stayed stranded in the
+middle of the picture once the window finished resizing (traced 2026-10-15:
+the "little square of end titles" after `f`). The same 4px floor as
+`osc-idle-hide.lua` also stops a resting finger's jitter from bringing a
+preview back under controls that stayed hidden.
 
 **To remove it entirely**, revert the one commit that added it:
 
@@ -166,7 +181,9 @@ git -C ~/.config/mpv revert --no-edit <commit>     # see: git log --oneline
 ```
 
 That takes out both scripts, the config, and the idle-timeout change together,
-leaving the setup exactly as it was. Then quit mpv fully (`Cmd`+`Q`) — the
+leaving the setup exactly as it was. Later fixes to the bridge
+(`git log --oneline -- scripts/seek-thumbnail.lua`) have to be reverted first,
+newest first, or that revert conflicts. Then quit mpv fully (`Cmd`+`Q`) — the
 launcher keeps one long-lived instance, so scripts are only re-read on a real
 restart.
 

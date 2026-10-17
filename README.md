@@ -1,4 +1,4 @@
-# mpv — macOS setup
+# MPV Player: Tiger Version
 
 A hand-tuned [mpv](https://mpv.io) configuration for macOS: a single-instance
 launcher, twenty Lua scripts, and a `.app` wrapper that makes mpv behave like
@@ -6,6 +6,29 @@ a native double-click-to-play media player.
 
 Every value in `mpv.conf` carries a comment explaining *why* it is set, usually
 with the measurement that justified it.
+
+## Quick start
+
+You need a Mac with [Homebrew](https://brew.sh). Paste this into Terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.sh | bash
+```
+
+That installs mpv and the tools the scripts use, puts this setup in
+`~/.config/mpv`, builds `mpv.app` in Applications, and adds the
+[MPV Remote](https://github.com/ryudexter/mpv-remote) script so the
+MPV Player Remote iPhone app can control it. An mpv config you already have is
+moved to `~/.config/mpv.backup-<date>`, and its saved playback positions come
+along. Running the installer again is safe; it only fills in what is missing.
+
+Then right-click a video and choose **Open With → mpv**. To make mpv the
+default, select a video, press Cmd-I, pick mpv under *Open with* and click
+**Change All**. `field-guide.html` shows every key and what it does.
+
+Made and tested on an Apple Silicon Mac with macOS 26. On an Intel Mac the
+installer points the setup at Homebrew in `/usr/local` instead, which is
+untested.
 
 ## What it does that stock mpv doesn't
 
@@ -110,24 +133,37 @@ sounds/
 app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source
-  icons/                13 hand-made document icons
+  icons/                13 document icons: the mpv logo on a tile, with the file type
   mpv-player.app/       the bundle the PLAYER runs from, so it can be brought
                         to the front (MacOS/mpv -> /opt/homebrew/bin/mpv)
+install.sh            sets all of this up on a Mac (see Quick start)
+LICENSE               MIT, for this repo's own files
+THIRD-PARTY-NOTICES.md  the bundled scripts, shaders, logo and sounds, and where they come from
 ```
 
-## Restoring on a new Mac
+## Installing by hand
+
+`install.sh` does all of this. It takes `--no-deps` (install nothing with
+Homebrew or pipx), `--no-remote` (skip the MPV Remote script) and
+`--rebuild-app` (rebuild `mpv.app` even if it is there; see the note below).
+Through curl, pass them as `… | bash -s -- --no-deps`.
+
+By hand:
 
 ```sh
-brew install mpv yt-dlp
+brew install mpv yt-dlp pipx
 brew install --cask quicklook-video          # MKV/WebM thumbnails
 pipx install subliminal                      # subtitle downloads (the b key)
-git clone git@github.com:ryudexter/mpv-macos-setup.git ~/.config/mpv
+pipx install ffsubsync                       # subtitle re-timing (Alt+b)
+git clone https://github.com/ryudexter/mpv-macos-setup.git ~/.config/mpv
 ```
 
-The `.app` wrapper is rebuilt by hand: create an AppleScript droplet from
-`app/main.applescript` in Script Editor, save it as `/Applications/mpv.app`,
-copy `app/Info.plist` over `Contents/Info.plist`, drop `app/icons/*.icns` into
-`Contents/Resources/`, then `codesign -f -s - /Applications/mpv.app`.
+The `.app` wrapper is built from `app/main.applescript`:
+`osacompile -o /Applications/mpv.app app/main.applescript`, copy
+`app/Info.plist` over `Contents/Info.plist` (keeping the `CFBundleExecutable`
+osacompile gave it), drop `app/icons/*.icns` into `Contents/Resources/`, then
+`codesign -f -s - /Applications/mpv.app`. Saving it as an application from
+Script Editor works too.
 
 > The launcher lives at `~/.config/mpv/mpv-open`, **outside** the bundle, on
 > purpose. Editing anything inside `mpv.app` breaks its ad-hoc signature, and
@@ -734,3 +770,13 @@ Things that cost real time here, all recorded in the config comments too:
   library.
 - For key problems, `--msg-level=input=trace --log-file=…` shows what mpv
   actually received. Measure; nearly every bug here looked like something else.
+
+## License
+
+MIT for this repository's own files; see `LICENSE`. The bundled third-party
+scripts, the Anime4K shaders, the mpv logo in the icons and the macOS-derived
+trash sounds are not covered by it; `THIRD-PARTY-NOTICES.md` lists where each
+comes from.
+
+MPV Player: Tiger Version is a personal configuration, not affiliated with or
+endorsed by the mpv project.

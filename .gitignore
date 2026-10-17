@@ -20,3 +20,7 @@ subs-fetched/
 
 # test rigs run from here import mpv-open, which leaves bytecode behind
 __pycache__/
+
+# MPV Remote, installed by install.sh from its own releases
+# (github.com/ryudexter/mpv-remote); it is a signed build, not config.
+scripts/mpv-remote/

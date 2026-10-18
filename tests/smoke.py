@@ -311,6 +311,9 @@ def test_launcher(a, config, media, work):
     check("the launcher starts a player", (ipc.get("path") or "").endswith("Episode 1.mkv"), ipc.get("path"))
     ipc.cmd("set_property", "pause", True)
     ipc.cmd("set_property", "speed", 3.0)
+    # mpv-open.exe takes two opens within a second for one Explorer selection
+    # (one launcher per file) and lets only the first switch; be a person here
+    time.sleep(1.5)
     subprocess.run(launcher + [two], env=env, timeout=60)
     ok = ipc.wait("switched", lambda: (ipc.get("path") or "").endswith("Episode 2.mkv"), timeout=10)
     check("a second open goes to the SAME player", ok and ipc.get("pid") == pid,

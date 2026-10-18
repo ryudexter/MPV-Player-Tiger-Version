@@ -13,7 +13,7 @@ jobs:
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: mpv from Homebrew
@@ -40,7 +40,7 @@ jobs:
           if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq git
           elif command -v dnf >/dev/null; then dnf install -y -q git
           else pacman -Sy --needed --noconfirm git; fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: install.sh and smoke test, as an ordinary user
@@ -52,7 +52,7 @@ jobs:
       run:
         shell: powershell          # Windows PowerShell 5.1, what install.ps1 is written for
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install.ps1
         run: |
           $env:MPV_SETUP_SOURCE = $env:GITHUB_WORKSPACE

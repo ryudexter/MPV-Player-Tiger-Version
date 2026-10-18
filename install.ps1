@@ -215,10 +215,26 @@ $git = Get-Command git.exe -ErrorAction SilentlyContinue
 $isOurs = (Test-Path (Join-Path $Conf 'scripts\shuffle-mode.lua')) -and (Test-Path (Join-Path $Conf 'field-guide.html'))
 $isClone = Test-Path (Join-Path $Conf '.git')
 
+# Plain files only, and no .git. The Mac-only app/mpv-player.app is two
+# symlinks into Homebrew that point nowhere on Windows, and Copy-Item gives up
+# on the whole copy at the first of them.
+function Copy-Tree($from, $to) {
+    $from = (Resolve-Path $from).Path.TrimEnd('\')
+    Get-ChildItem -LiteralPath $from -Recurse -Force -File |
+        Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } |
+        ForEach-Object {
+            $rel = $_.FullName.Substring($from.Length + 1)
+            if ($rel -match '^\.git(\\|$)') { return }
+            $dst = Join-Path $to $rel
+            New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null
+            Copy-Item -LiteralPath $_.FullName -Destination $dst -Force
+        }
+}
+
 function Get-Setup($dest) {
     $src = $env:MPV_SETUP_SOURCE
     if ($src -and (Test-Path $src -PathType Container)) {
-        Copy-Item (Join-Path $src '*') $dest -Recurse -Force -Exclude '.git'
+        Copy-Tree $src $dest
         return
     }
     if (-not $src -and $git) {
@@ -235,7 +251,7 @@ function Get-Setup($dest) {
     }
     Expand-Archive $zip -DestinationPath $tmp -Force
     $top = Get-ChildItem $tmp -Directory | Select-Object -First 1
-    Copy-Item (Join-Path $top.FullName '*') $dest -Recurse -Force
+    Copy-Tree $top.FullName $dest
     Remove-Item $tmp -Recurse -Force
 }
 

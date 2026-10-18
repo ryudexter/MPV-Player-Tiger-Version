@@ -279,6 +279,15 @@ options.scale_factor = math.floor(options.scale_factor)
 local mpv_path = options.mpv_path
 local frontend_path
 
+-- LOCAL PATCH (MPV Player: Tiger Version): script-opts/thumbfast.conf pins the
+-- Mac's Homebrew mpv, because an app opened from Finder has no PATH to find a
+-- bare "mpv" on. That path does not exist on Windows or Linux, so there fall
+-- back to upstream's default and let the lookups below find this mpv - on
+-- Windows a bare "mpv" resolves beside mpv.exe, on Linux through PATH.
+if os_name ~= "darwin" and mpv_path:sub(1, 1) == "/" and not mp.utils.file_info(mpv_path) then
+    mpv_path = "mpv"
+end
+
 if mpv_path == "mpv" and os_name == "windows" then
     frontend_path = mp.get_property_native("user-data/frontend/process-path")
     mpv_path = frontend_path or mpv_path

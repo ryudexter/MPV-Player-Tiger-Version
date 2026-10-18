@@ -30,11 +30,16 @@
 
 local utils = require "mp.utils"
 
-local HOME = os.getenv("HOME") or ""
+local PLATFORM = mp.get_property("platform")   -- "darwin", "windows", "linux", ...
+local HOME = (PLATFORM == "windows" and os.getenv("USERPROFILE") or os.getenv("HOME")) or ""
 
 -- Absolute, for the reason given in subtitle-fetch.lua: a Finder-launched app
 -- inherits no shell PATH, and a bare name would fail silently under mpv.app.
-local FFSUBSYNC = HOME .. "/.local/bin/ffsubsync"
+-- Off the Mac, the same pipx location first and then PATH, as there.
+-- ffsubsync runs ffmpeg by name, so on Windows and Linux ffmpeg itself has to
+-- be on PATH (both installers see to it).
+local FFSUBSYNC = HOME .. "/.local/bin/ffsubsync" .. (PLATFORM == "windows" and ".exe" or "")
+if PLATFORM ~= "darwin" and not utils.file_info(FFSUBSYNC) then FFSUBSYNC = "ffsubsync" end
 
 -- Deliberately far past the 242s measured above, because the cause of that
 -- slowness is not understood and a longer film could well be worse. The ticker
@@ -45,11 +50,10 @@ local busy, handle, ticker, started = false, nil, nil, 0
 
 local function osd(text, dur) mp.osd_message(text, dur or 2.5) end
 
+-- join_path leaves an absolute path alone, Windows ones (C:\) included.
 local function absolute(path)
-    if path and not path:match("^/") then
-        local wd = mp.get_property("working-directory")
-        if wd then return wd .. "/" .. path end
-    end
+    local wd = mp.get_property("working-directory")
+    if path and wd then return utils.join_path(wd, path) end
     return path
 end
 
@@ -81,6 +85,12 @@ local function finished(ok, res, err, ctx)
 
     -- ffsubsync logs its report to stderr, including the two numbers worth
     -- reading back: "offset seconds: -12.040" and "score: 234968.000".
+    if res and res.error_string == "init" then
+        osd("ffsubsync is not installed", 3)
+        mp.msg.error("could not run " .. FFSUBSYNC)
+        return
+    end
+
     local out    = ((res and res.stderr) or "") .. ((res and res.stdout) or "")
     local offset = tonumber(out:match("offset seconds:%s*(-?[%d.]+)"))
 
@@ -110,6 +120,10 @@ local function finished(ok, res, err, ctx)
     if not utils.file_info(ctx.sub .. ".orig") then
         os.rename(ctx.sub, ctx.sub .. ".orig")
     end
+    -- Windows will not rename onto a file that exists, which on the second
+    -- sync it does (the backup above is only taken once). The original is safe
+    -- in .orig by now either way.
+    if PLATFORM == "windows" then os.remove(ctx.sub) end
     os.rename(ctx.tmp, ctx.sub)
 
     if mp.get_property("path") and absolute(mp.get_property("path")) ~= ctx.path then
@@ -144,7 +158,7 @@ local function sync()
     local sub, why = current_sub()
     if not sub then osd(why, 3); return end
 
-    if not utils.file_info(FFSUBSYNC) then
+    if FFSUBSYNC ~= "ffsubsync" and not utils.file_info(FFSUBSYNC) then
         osd("ffsubsync is not installed", 3)
         mp.msg.error("expected the ffsubsync CLI at " .. FFSUBSYNC)
         return

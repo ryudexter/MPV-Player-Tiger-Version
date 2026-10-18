@@ -37,15 +37,38 @@
 -- slowed ~5 semitones and about half as loud: sounds/trash-poof.wav, 0.47 s.
 -- sounds/make-trash-sounds.sh builds it and the three paper crumples that
 -- lost - trash-crumple, trash-crumple-lower, trash-crumple-fuller.
+--
+-- Windows and Linux (Ctrl+Delete there, see input.conf):
+--   Windows  the Recycle Bin, through `mpv-open.exe --trash` (the launcher
+--            install.ps1 builds), so Explorer's "Restore" puts it back. It asks
+--            Windows to WARN before deleting anything outright: a file on a
+--            drive with no Recycle Bin (a network share, some USB sticks) or one
+--            too big for it would otherwise be erased with no prompt at all,
+--            which is what the usual one-liners (VB's DeleteFile, PowerShell)
+--            quietly do. mpv opens files with FILE_SHARE_DELETE, so the file
+--            can be moved while it plays and playback carries on, as on a Mac.
+--   Linux    the freedesktop Trash, through `gio trash` (GLib, on nearly every
+--            desktop), else `trash-put` (trash-cli), else KDE's kioclient. All
+--            three keep the restore information the file manager needs, and
+--            none of them falls back to deleting when a mount has no trash.
+-- afplay is macOS-only, so there the sound is played by a second, throwaway
+-- mpv with no config: still a separate process, so muting this one does not
+-- silence it, and sound_volume still applies.
 
 local options = require 'mp.options'
+local utils   = require 'mp.utils'
+
+local PLATFORM = mp.get_property("platform")   -- "darwin", "windows", "linux", ...
+-- what the bin is called on this system, for the messages
+local BIN      = PLATFORM == "windows" and "the Recycle Bin" or "the Trash"
+local MOVED_TO = PLATFORM == "windows" and "Moved to the Recycle Bin: " or "Moved to Trash: "
 
 local opts = {
     confirm = false,      -- yes = require a second press within confirm_secs
     confirm_secs = 3,
     -- played on success; empty = no sound. ~~/ is the mpv config folder.
     sound = "~~/sounds/trash-poof.wav",
-    sound_volume = 1,     -- afplay -v: 1 = the file's own level
+    sound_volume = 1,     -- afplay -v (mpv --volume elsewhere): 1 = the file's own level
 }
 options.read_options(opts, "trash_file")
 
@@ -55,11 +78,11 @@ local pending = {}
 local reaping = false
 
 -- mpv keeps `path` exactly as the playlist entry gave it, which can be
--- relative; the Trash API needs an absolute one.
+-- relative; the Trash API needs an absolute one. join_path leaves an absolute
+-- path alone, and knows a Windows one (C:\, \\server\) when it sees it.
 local function abs(path)
-    if path:match("^/") then return path end
     local wd = mp.get_property("working-directory")
-    return wd and (wd .. "/" .. path) or path
+    return wd and utils.join_path(wd, path) or path
 end
 
 -- Entry ids are stable for the life of the playlist, indices are not - they
@@ -130,12 +153,58 @@ end
 -- error, so afplay's result is not looked at.
 local function play_sound()
     if opts.sound == "" then return end
+    local file = mp.command_native({ "expand-path", opts.sound })
+    local args = { "/usr/bin/afplay", "-v", tostring(opts.sound_volume), file }
+    if PLATFORM ~= "darwin" then
+        -- bare "mpv": on Windows a child is looked for beside mpv.exe first, so
+        -- this is the same mpv; on Linux it is the one on PATH
+        args = { "mpv", "--no-config", "--no-terminal", "--no-video",
+                 "--force-window=no", "--volume=" .. tostring(opts.sound_volume * 100),
+                 "--", file }
+    end
     mp.command_native_async({
         name          = "subprocess",
-        args          = { "/usr/bin/afplay", "-v", tostring(opts.sound_volume),
-                          mp.command_native({ "expand-path", opts.sound }) },
+        args          = args,
         playback_only = false,
     }, function() end)
+end
+
+-- Run the first of `candidates` that exists on this machine. A candidate that
+-- cannot be started at all (error "init": not installed) passes to the next;
+-- any other outcome, success or failure, is that tool's answer and is final.
+local function run_first(candidates, done, i)
+    i = i or 1
+    if not candidates[i] then
+        return done(false, nil, "none of the trash tools is installed")
+    end
+    mp.command_native_async({
+        name           = "subprocess",
+        args           = candidates[i],
+        playback_only  = false,          -- must survive the end of a file
+        capture_stdout = true,
+        capture_stderr = true,
+    }, function(ok, res, err)
+        if ok and res and res.error_string == "init" then
+            return run_first(candidates, done, i + 1)
+        end
+        done(ok, res, err)
+    end)
+end
+
+-- What moves `path` to the bin here, best first.
+local function trash_commands(path)
+    if PLATFORM == "darwin" then
+        return { { "/usr/bin/trash", "-v", path } }
+    elseif PLATFORM == "windows" then
+        return { { mp.command_native({ "expand-path", "~~/mpv-open.exe" }),
+                   "--trash", (path:gsub("/", "\\")) } }
+    end
+    return {
+        { "gio", "trash", path },
+        { "trash-put", path },
+        { "kioclient6", "move", path, "trash:/" },
+        { "kioclient5", "move", path, "trash:/" },
+    }
 end
 
 local function do_trash()
@@ -158,22 +227,22 @@ local function do_trash()
     -- pressing it twice on the same file would otherwise report a failure,
     -- since the second trash cannot find the file any more
     if id and pending[id] then
-        mp.osd_message("Already in the Trash: " .. name, 2)
+        mp.osd_message("Already in " .. BIN .. ": " .. name, 2)
         return
     end
 
-    mp.command_native_async({
-        name           = "subprocess",
-        args           = { "/usr/bin/trash", "-v", path },
-        playback_only  = false,          -- must survive the end of a file
-        capture_stdout = true,
-        capture_stderr = true,
-    }, function(ok, res, err)
+    run_first(trash_commands(path), function(ok, res, err)
         if not (ok and res and res.status == 0) then
-            -- trash exits 5 when the file is already gone
+            -- trash exits 5 when the file is already gone; mpv-open.exe exits
+            -- 2 when Windows asked to delete outright and the answer was no
+            if PLATFORM == "windows" and res and res.status == 2 then
+                mp.osd_message("Kept: not moved to " .. BIN, 2)
+                return
+            end
             mp.osd_message("Could not trash this file", 2)
             mp.msg.error("trash failed: " ..
-                tostring(err or (res and res.stderr) or "unknown"))
+                tostring(err or (res and (res.stderr ~= "" and res.stderr or res.error_string))
+                         or "unknown"))
             return
         end
 
@@ -188,7 +257,7 @@ local function do_trash()
             stranded = shuffle_out_of_last_place(id)
             reap()                       -- in case we have since moved off it
         end
-        mp.osd_message("Moved to Trash: " .. name ..
+        mp.osd_message(MOVED_TO .. name ..
             (stranded and "  (nothing else in this playlist)" or ""), 2)
     end)
 end

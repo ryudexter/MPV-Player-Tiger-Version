@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Single-instance launcher for the mpv.app wrapper.
+"""Single-instance launcher for the mpv.app wrapper (macOS) and for the
+"mpv (Tiger Version)" desktop entry install.sh adds on Linux. Windows has its
+own, windows/mpv-open.cs, built by install.ps1 - the same logic in C#.
 
 Lives OUTSIDE the app bundle on purpose: editing anything inside mpv.app
 breaks its ad-hoc code signature, and re-signing changes the cdhash that
@@ -14,21 +16,44 @@ Behaviour:
   * file already playing     -> do nothing, so it keeps its position
   * instance running         -> and bring it to the front, switching to its
                                 fullscreen Space if that is where it is
+                                (macOS; on Linux that is up to the desktop)
 """
-import fcntl, json, os, socket, subprocess, sys, time
+import fcntl, json, os, shutil, socket, subprocess, sys, time
 
-SOCK  = "/tmp/mpv-single.sock"
-LOCK  = "/tmp/mpv-single.lock"
-# The player is started through a symlink to Homebrew's binary inside its own
-# app bundle, so macOS knows the running player as an app. Only an app can be
-# brought to the front from here - see bring_forward().
-BUNDLE = os.path.expanduser("~/.config/mpv/app/mpv-player.app")
-MPV    = BUNDLE + "/Contents/MacOS/mpv"
-if not os.path.exists(MPV):              # symlink broken or bundle gone: still
-    MPV = "/opt/homebrew/bin/mpv"        # play, just without the raise
+MAC = sys.platform == "darwin"
+
+if MAC:
+    SOCK  = "/tmp/mpv-single.sock"
+    LOCK  = "/tmp/mpv-single.lock"
+    # The player is started through a symlink to Homebrew's binary inside its
+    # own app bundle, so macOS knows the running player as an app. Only an app
+    # can be brought to the front from here - see bring_forward().
+    BUNDLE = os.path.expanduser("~/.config/mpv/app/mpv-player.app")
+    MPV    = BUNDLE + "/Contents/MacOS/mpv"
+    if not os.path.exists(MPV):          # symlink broken or bundle gone: still
+        MPV = "/opt/homebrew/bin/mpv"    # play, just without the raise
+else:
+    # Linux (and the BSDs). The socket goes in the per-user runtime dir: /tmp
+    # is shared by every account on the machine, and a second user's launcher
+    # would otherwise find the first user's player and hand it their files.
+    # /tmp with the uid in the name when there is no runtime dir.
+    run = os.environ.get("XDG_RUNTIME_DIR")
+    if run and os.path.isdir(run):
+        SOCK = os.path.join(run, "mpv-single.sock")
+        LOCK = os.path.join(run, "mpv-single.lock")
+    else:
+        SOCK = "/tmp/mpv-single-%d.sock" % os.getuid()
+        LOCK = "/tmp/mpv-single-%d.lock" % os.getuid()
+    # A desktop entry is started with the session's PATH, so the mpv on it is
+    # the one the user would get typing mpv - the distribution's, as a rule.
+    BUNDLE = None
+    MPV    = shutil.which("mpv") or "/usr/bin/mpv"
 FLAGS = ["--force-window=immediate",
          "--input-ipc-server=" + SOCK,
          "--focus-on=all"]
+# Extra flags for the player this starts, split on spaces. For testing (the CI
+# runs it with --vo=null --ao=null); nothing in the setup sets it.
+FLAGS += os.environ.get("MPV_TIGER_FLAGS", "").split()
 
 def norm(p):
     try:
@@ -129,7 +154,7 @@ def bring_forward(pid):
     behind others, un-minimised, or hidden. But `open -a` names an app bundle,
     which a bare binary is not: hence BUNDLE.
     """
-    if not pid:
+    if not pid or not MAC:
         return
     try:
         # Only when macOS has THIS process down as our bundle. An instance
@@ -151,10 +176,20 @@ def launch(files, extra=None):
         os.unlink(SOCK)                  # clear a stale socket
     except OSError:
         pass
+    # Linux: pipx puts yt-dlp, subliminal and ffsubsync in ~/.local/bin, which
+    # a desktop session does not always have on PATH (Ubuntu adds it at login
+    # only if it existed then; Fedora only in interactive shells). The player
+    # gets it either way, so mpv's YouTube hook finds yt-dlp.
+    env = None
+    if not MAC:
+        env = dict(os.environ)
+        local_bin = os.path.expanduser("~/.local/bin")
+        if local_bin not in env.get("PATH", "").split(os.pathsep):
+            env["PATH"] = local_bin + os.pathsep + env.get("PATH", "/usr/bin:/bin")
     # anything after "--" is treated as a filename, so flags go before it
     subprocess.Popen([MPV] + FLAGS + (extra or []) + ["--"] + files,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     start_new_session=True)
+                     start_new_session=True, env=env)
 
 def wait_for_socket(timeout=10.0):
     """Block until the freshly launched mpv is accepting IPC connections."""

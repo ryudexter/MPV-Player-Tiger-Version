@@ -38,6 +38,16 @@
 local mp    = require 'mp'
 local utils = require 'mp.utils'
 
+-- macOS only. native-fs means nothing to mpv on Windows or Linux, which have
+-- one kind of fullscreen and no Spaces; there p just says so, rather than
+-- putting up a "separate Space" label that changes nothing.
+if mp.get_property("platform") ~= "darwin" then
+    mp.add_key_binding(nil, "toggle-fullscreen-mode", function()
+        mp.osd_message("p switches how fullscreen works on macOS only", 2)
+    end)
+    return
+end
+
 local PATH      = mp.command_native({"expand-path", "~~state/fullscreen-state.json"})
 local SETTLE    = 0.35   -- margin after the window reports it left fullscreen
 local switching = false

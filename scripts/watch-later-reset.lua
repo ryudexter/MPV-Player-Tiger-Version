@@ -164,7 +164,12 @@ end
 --
 -- So hand mpv both spellings. iconv's UTF-8-MAC is the decomposed form macOS
 -- itself uses, which makes it exactly the pair that can collide.
+--
+-- macOS only. Linux filesystems and NTFS compare names byte for byte (NTFS
+-- per UTF-16 unit), so the two spellings there are two different files, not
+-- two names for one - and neither glibc's iconv nor Windows has UTF-8-MAC.
 local function alt_spellings(paths)
+    if mp.get_property("platform") ~= "darwin" then return {} end
     local batch = {}
     for _, p in ipairs(paths) do
         -- an ASCII path has only one spelling, which covers nearly all of them;

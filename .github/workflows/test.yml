@@ -1,0 +1,82 @@
+# Installs MPV Player: Tiger Version on macOS, Windows and three Linux
+# distributions, the way a person would, and runs tests/smoke.py on each:
+# headless mpv, keys pressed over IPC, and what each one changed.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: mpv from Homebrew
+        run: brew install mpv
+      - name: install.sh
+        # --no-deps: the Homebrew/pipx step is unchanged from before the port,
+        # and mpv is already here. Everything else runs: the clone, mpv.app.
+        run: MPV_SETUP_REPO="$GITHUB_WORKSPACE" ./install.sh --no-deps --no-remote
+      - name: smoke test
+        run: python3 ~/.config/mpv/tests/smoke.py --config ~/.config/mpv --desktop --launcher
+
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Ubuntu 24.04's own mpv is 0.37, older than the setup needs, so the
+        # runner is only the host; the distributions run as containers.
+        image: ["debian:trixie", "fedora:latest", "archlinux:latest"]
+    container: ${{ matrix.image }}
+    steps:
+      - name: git, for checkout to make a real repository
+        run: |
+          if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq git
+          elif command -v dnf >/dev/null; then dnf install -y -q git
+          else pacman -Sy --needed --noconfirm git; fi
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: install.sh and smoke test, as an ordinary user
+        run: bash tests/linux-in-container.sh "$GITHUB_WORKSPACE"
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell          # Windows PowerShell 5.1, what install.ps1 is written for
+    steps:
+      - uses: actions/checkout@v4
+      - name: install.ps1
+        run: |
+          $env:MPV_SETUP_SOURCE = $env:GITHUB_WORKSPACE
+          .\install.ps1
+      - name: Open with entries are there
+        run: |
+          $ok = (Test-Path 'HKCU:\Software\Classes\MPVTiger.File\shell\open\command') -and
+                (Test-Path 'HKCU:\Software\Classes\.mkv\OpenWithProgids') -and
+                (Test-Path 'HKCU:\Software\Classes\Directory\shell\MPVTiger\command')
+          Get-ItemProperty 'HKCU:\Software\Classes\MPVTiger.File\shell\open\command'
+          if (-not $ok) { throw 'associations missing' }
+      - name: mpv-open.exe --power
+        run: |
+          $out = & "$env:APPDATA\mpv\mpv-open.exe" --power | Out-String
+          Write-Host "power: $out"
+          if ($out -notmatch 'ac|battery|unknown') { throw "unexpected: $out" }
+      - name: smoke test
+        run: python tests\smoke.py --config "$env:APPDATA\mpv" --mpv "$env:LOCALAPPDATA\Programs\mpv\mpv.exe" --desktop --launcher
+      - name: install.ps1 again (update in place)
+        run: |
+          $env:MPV_SETUP_SOURCE = $env:GITHUB_WORKSPACE
+          .\install.ps1 -NoDeps
+          if (-not (Test-Path "$env:APPDATA\mpv\mpv-open.exe")) { throw 'mpv-open.exe missing after update' }
+      - name: install.ps1 -Uninstall
+        run: |
+          .\install.ps1 -Uninstall
+          if (Test-Path 'HKCU:\Software\Classes\MPVTiger.File') { throw 'still registered' }

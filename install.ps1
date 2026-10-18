@@ -151,17 +151,34 @@ function Find-Mpv {
     return $null
 }
 
+# The newest release's tag. github.com/<repo>/releases/latest redirects to it,
+# and unlike GitHub's API that page has no 60-requests-an-hour limit per
+# address - which a shared or office connection can use up (the CI runners
+# did). The API is only the fallback.
+function Get-LatestTag($repo) {
+    try {
+        $r = Invoke-WebRequest "https://github.com/$repo/releases/latest" -Method Head -UseBasicParsing
+        $u = $null
+        if ($r.BaseResponse.ResponseUri) { $u = $r.BaseResponse.ResponseUri.AbsoluteUri }                 # Windows PowerShell
+        elseif ($r.BaseResponse.RequestMessage) { $u = $r.BaseResponse.RequestMessage.RequestUri.AbsoluteUri } # PowerShell 7
+        if ($u -match '/releases/tag/([^/?#]+)') { return $Matches[1] }
+    } catch { }
+    return (Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'tiger-install' }).tag_name
+}
+
 function Install-Mpv {
     $arch = 'x86_64'
     if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { $arch = 'aarch64' }
-    $rel = Invoke-RestMethod 'https://api.github.com/repos/mpv-player/mpv/releases/latest' -Headers @{ 'User-Agent' = 'tiger-install' }
-    $asset = $rel.assets | Where-Object { $_.name -like "*-$arch-pc-windows-msvc.zip" } | Select-Object -First 1
-    if (-not $asset) { Die "Found no $arch Windows build in mpv's latest release ($($rel.tag_name))." }
-    Note "Downloading $($asset.name)"
+    $tag = Get-LatestTag 'mpv-player/mpv'
+    # mpv's own naming, e.g. v0.41.0/mpv-v0.41.0-x86_64-pc-windows-msvc.zip
+    $name = "mpv-$tag-$arch-pc-windows-msvc.zip"
+    Note "Downloading $name"
     $tmp = Join-Path $env:TEMP "tiger-mpv-$Stamp"
     New-Item -ItemType Directory -Force $tmp | Out-Null
     $zip = Join-Path $tmp 'mpv.zip'
-    Invoke-WebRequest $asset.browser_download_url -OutFile $zip -UseBasicParsing
+    try {
+        Invoke-WebRequest "https://github.com/mpv-player/mpv/releases/download/$tag/$name" -OutFile $zip -UseBasicParsing
+    } catch { Die "Could not download $name from mpv's latest release ($tag): $($_.Exception.Message)" }
     Expand-Archive $zip -DestinationPath (Join-Path $tmp 'mpv') -Force
     Remove-Item (Join-Path $tmp 'mpv\*.pdb') -ErrorAction SilentlyContinue    # 200+ MB of debug symbols
     New-Item -ItemType Directory -Force $LocalMpv | Out-Null

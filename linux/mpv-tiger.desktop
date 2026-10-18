@@ -1,0 +1,21 @@
+[Desktop Entry]
+# install.sh copies this to ~/.local/share/applications/mpv-tiger.desktop,
+# with @@MPV_OPEN@@ replaced by the launcher's absolute path (a desktop file
+# expands neither ~ nor $HOME). It puts "mpv (Tiger Version)" in the file
+# manager's Open With list for the same kinds of file mpv.app claims on a Mac,
+# and makes it the default for nothing - that stays your choice.
+#
+# Folders are left out of MimeType on purpose: listing inode/directory can make
+# some file managers open EVERY folder with it. To play a folder, open a video
+# in it - the folder becomes the playlist anyway.
+Type=Application
+Name=mpv (Tiger Version)
+GenericName=Media Player
+Comment=mpv, set up as MPV Player: Tiger Version - one window, the folder as the playlist
+Icon=mpv-tiger
+Exec="@@MPV_OPEN@@" %F
+Terminal=false
+Categories=AudioVideo;Audio;Video;Player;
+Keywords=mpv;video;player;media;
+StartupWMClass=mpv
+MimeType=video/x-matroska;video/mp4;video/x-m4v;video/quicktime;video/x-msvideo;video/webm;video/x-ms-wmv;video/x-flv;video/mpeg;video/mp2t;video/3gpp;video/3gpp2;video/ogg;audio/mpeg;audio/mp4;audio/x-m4a;audio/aac;audio/flac;audio/x-wav;audio/x-aiff;audio/ogg;audio/opus;audio/x-mpegurl;application/vnd.apple.mpegurl;audio/x-scpls;

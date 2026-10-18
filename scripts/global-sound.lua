@@ -48,11 +48,28 @@ local function restore()
     mp.msg.verbose("restored volume=" .. tostring(st.volume))
 end
 
+-- ~~state is the config folder itself on macOS, but a folder of its own on
+-- Linux (~/.local/state/mpv) and Windows (%LOCALAPPDATA%\mpv), and mpv only
+-- creates that one the first time it saves a playback position. Until then
+-- the first save would fail, so make the folder when it is missing. That is a
+-- one-off: once it exists, the plain io.open succeeds and nothing is spawned.
+local function open_for_writing(path)
+    local f = io.open(path, "w")
+    if f then return f end
+    local dir = utils.split_path(path)
+    local args = { "mkdir", "-p", dir }
+    if mp.get_property("platform") == "windows" then
+        args = { "cmd", "/d", "/c", "mkdir", (dir:gsub("/", "\\")) }
+    end
+    mp.command_native({ name = "subprocess", args = args, playback_only = false })
+    return io.open(path, "w")
+end
+
 local function save()
     save_timer = nil
     local st = { volume = mp.get_property_number("volume") }
     if st.volume == nil then return end
-    local f = io.open(PATH, "w")
+    local f = open_for_writing(PATH)
     if not f then
         mp.msg.error("could not write " .. PATH)
         return

@@ -157,7 +157,7 @@
 <div class="wrap">
 
   <header class="mast">
-    <div class="kicker">MPV Player: Tiger Version · macOS · Homebrew mpv</div>
+    <div class="kicker">MPV Player: Tiger Version · macOS · Windows · Linux</div>
     <h1>Field Guide</h1>
     <p class="standfirst">Everything your setup does, and which key does it.</p>
   </header>
@@ -427,8 +427,44 @@
     </div>
   </section>
 
+  <section>
+    <h2><span class="num">10</span> On Windows and Linux</h2>
+    <p class="lede">The same setup runs on Windows 10 and 11 and on Linux, and every key on this page works there too. Only the Mac chords change, to the keys those keyboards use for the same thing.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>On a Mac</th><th>On Windows and Linux</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="path">⌘ + anything</td><td class="desc"><kbd>Ctrl</kbd> + the same key: <kbd>Ctrl</kbd><span class="plus">+</span><kbd>→</kbd> 30 seconds, <kbd>Ctrl</kbd><span class="plus">+</span><kbd>z</kbd> shuffle, <kbd>Ctrl</kbd><span class="plus">+</span><kbd>t</kbd> a clip</td></tr>
+          <tr><td class="path">Option</td><td class="desc"><kbd>Alt</kbd>, either one</td></tr>
+          <tr><td class="path">⌘ + Delete</td><td class="desc"><kbd>Ctrl</kbd><span class="plus">+</span><kbd>Delete</kbd>: to the Recycle Bin on Windows, the Trash on Linux. On Windows, a file on a drive with no Recycle Bin is never deleted outright without Windows asking you first</td></tr>
+          <tr><td class="path">i — Show in Finder</td><td class="desc">File Explorer on Windows, your file manager on Linux, with the file selected</td></tr>
+          <tr><td class="path">Open With → mpv</td><td class="desc">Open with → <b>mpv (Tiger Version)</b>. On Windows a folder also has <b>Play with mpv (Tiger Version)</b> on its right-click menu (under <i>Show more options</i> on Windows 11)</td></tr>
+          <tr><td class="path">p</td><td class="desc">Does nothing there — the two kinds of fullscreen it switches between are a macOS thing</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Where it lives</th><th>Windows</th><th>Linux</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="desc">The setup</td><td class="path">%APPDATA%\mpv\</td><td class="path">~/.config/mpv/</td></tr>
+          <tr><td class="desc">Saved positions, the volume</td><td class="path">%LOCALAPPDATA%\mpv\</td><td class="path">~/.local/state/mpv/</td></tr>
+          <tr><td class="desc">The one-window launcher</td><td class="path">%APPDATA%\mpv\mpv-open.exe</td><td class="path">~/.config/mpv/mpv-open</td></tr>
+          <tr><td class="desc">mpv itself</td><td class="path">%LOCALAPPDATA%\Programs\mpv\</td><td class="path">your distribution's</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      Not on Windows or Linux yet: the <b>MPV Remote</b> iPhone app, whose companion is a Mac program. Opening a video there brings the player forward as far as the system allows — Windows does; on Linux it is up to the desktop.
+    </div>
+  </section>
+
   <footer>
-    Built on mpv 0.41.0 (Homebrew) · macOS · 10 October 2026
+    Built on mpv 0.41.0 (Homebrew) · macOS · 10 October 2026 · Windows and Linux added 18 October 2026
   </footer>
 
 </div>

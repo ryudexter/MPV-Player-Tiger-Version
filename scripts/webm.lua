@@ -306,6 +306,13 @@ format_filename = function(startTime, endTime, videoFormat)
 end
 local parse_directory
 parse_directory = function(dir)
+  -- LOCAL (MPV Player: Tiger Version): mpv's own path prefixes, so that
+  -- output_directory=~~desktop/ means the real Desktop on every system - on
+  -- Windows that can be OneDrive\Desktop, on Linux XDG_DESKTOP_DIR (Masaustu,
+  -- Bureau, ...), neither of which a plain ~/Desktop finds.
+  if dir:sub(1, 2) == "~~" then
+    return mp.command_native({"expand-path", dir})
+  end
   local home_dir = os.getenv("HOME")
   if not home_dir then
     home_dir = os.getenv("USERPROFILE")
@@ -1976,8 +1983,15 @@ encode = function(region, startTime, endTime)
     message("No file is being played")
     return 
   end
+  -- LOCAL: script-opts/webm.conf pins the Mac's Homebrew mpv. That path does
+  -- not exist on Windows or Linux, where a bare "mpv" finds this same mpv
+  -- (beside mpv.exe on Windows, on PATH on Linux) - upstream's own default.
+  local mpv_path = options.mpv_path
+  if mp.get_property("platform") ~= "darwin" and mpv_path:sub(1, 1) == "/" and not file_exists(mpv_path) then
+    mpv_path = "mpv"
+  end
   local command = {
-    options.mpv_path,  -- LOCAL: was bare "mpv"; see mpv_path in the options above.
+    mpv_path,  -- LOCAL: was bare "mpv"; see mpv_path in the options above.
     path,
     "--start=" .. seconds_to_time_string(startTime, false, true),
     "--end=" .. seconds_to_time_string(endTime, false, true),

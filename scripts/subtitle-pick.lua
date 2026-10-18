@@ -27,10 +27,14 @@
 -- actually works. Both halves of that are fixed here - the scoring sinks a
 -- signs-only track below a full one, and the cycle now walks all of them.
 
+-- Everything up to the last path separator, which on Windows is \ as well as /
+-- (a file opened from Explorer arrives as C:\Films\Film.mkv).
+local DIR_PART = mp.get_property("platform") == "windows" and "^.*[/\\]" or ".*/"
+
 local function label(t)
     if t.title and t.title ~= "" then return t.title end
     local fn = t["external-filename"]
-    if fn then return (fn:gsub(".*/", "")) end
+    if fn then return (fn:gsub(DIR_PART, "")) end
     return "track " .. tostring(t.id) .. (t.lang and (" (" .. t.lang .. ")") or "")
 end
 
@@ -38,7 +42,7 @@ end
 -- told apart from one belonging to a different episode in the same folder.
 local function video_stem()
     local path = mp.get_property("path") or ""
-    return (path:gsub(".*/", ""):gsub("%.[^.]*$", ""))
+    return (path:gsub(DIR_PART, ""):gsub("%.[^.]*$", ""))
 end
 
 -- Wanted languages, best first. Turkish is here because a Turkish subtitle is
@@ -81,7 +85,7 @@ local function score(t, stem)
     -- the external file's name without its path or extension, which is both
     -- the tie-breaker further down and, for a file called nothing but a
     -- language code, the only language signal there is
-    local base  = fn and fn:gsub(".*/", ""):gsub("%.[^.]*$", "") or nil
+    local base  = fn and fn:gsub(DIR_PART, ""):gsub("%.[^.]*$", "") or nil
     -- Language decides first, everything else only sorts within a language.
     -- English is preferred and Turkish is the fallback, and the two bands are
     -- 500 apart - wider than every other signal here added together - so no
@@ -174,7 +178,7 @@ local MAX_PER_LANG = 5
 local function belongs(t, stem)
     local fn = t["external-filename"]
     if not fn then return true end
-    local base = fn:gsub(".*/", ""):gsub("%.[^.]*$", "")
+    local base = fn:gsub(DIR_PART, ""):gsub("%.[^.]*$", "")
     return base == stem or (stem ~= "" and base:find(stem, 1, true) ~= nil)
 end
 

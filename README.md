@@ -1,13 +1,21 @@
 # MPV Player: Tiger Version
 
-A hand-tuned [mpv](https://mpv.io) configuration for macOS: a single-instance
-launcher, twenty Lua scripts, and a `.app` wrapper that makes mpv behave like
-a native double-click-to-play media player.
+A hand-tuned [mpv](https://mpv.io) configuration for **macOS, Windows and
+Linux**: a single-instance launcher, twenty Lua scripts, and the glue that
+makes mpv behave like a native double-click-to-play media player on each —
+a `.app` wrapper on the Mac, an "Open with" entry on Windows and Linux.
 
 Every value in `mpv.conf` carries a comment explaining *why* it is set, usually
 with the measurement that justified it.
 
+It was made on a Mac, and the Mac is still where every measurement below was
+taken. Windows and Linux run the same config and the same scripts, with the
+handful of Mac-only calls swapped for each system's own — see
+[Windows and Linux](#windows-and-linux).
+
 ## Quick start
+
+### macOS
 
 You need a Mac with [Homebrew](https://brew.sh). Paste this into Terminal:
 
@@ -29,6 +37,61 @@ default, select a video, press Cmd-I, pick mpv under *Open with* and click
 Made and tested on an Apple Silicon Mac with macOS 26. On an Intel Mac the
 installer points the setup at Homebrew in `/usr/local` instead, which is
 untested.
+
+### Windows 10 and 11
+
+Paste this into PowerShell (Start menu → type *PowerShell* → Enter). No
+administrator rights needed:
+
+```powershell
+irm https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.ps1 | iex
+```
+
+That downloads mpv's official Windows build into `%LOCALAPPDATA%\Programs\mpv`
+(unless an mpv 0.39 or newer is already there), puts this setup in
+`%APPDATA%\mpv`, adds `yt-dlp.exe` for YouTube links, and — if `winget` is
+available — ffmpeg, Python and the two subtitle tools. It builds
+`mpv-open.exe`, the one-window launcher, with the C# compiler that comes with
+Windows, and adds **mpv (Tiger Version)** to *Open with* for video, audio and
+playlist files, a *Play with mpv (Tiger Version)* item to folders, and a Start
+menu shortcut. A config that was already there moves to
+`%APPDATA%\mpv.backup-<date>`.
+
+Then right-click a video → **Open with → mpv (Tiger Version)**. To make it the
+default, pick *Choose another app* there and tick *Always*, or set all types at
+once under *Settings → Apps → Default apps → mpv (Tiger Version)* — Windows
+does not let an installer do that part. Running the installer again updates
+the setup in place; `-Uninstall` takes the *Open with* entries out again:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.ps1))) -Uninstall
+```
+
+### Linux
+
+Paste this into a terminal. It asks for your password once, for the package
+manager:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.sh | bash
+```
+
+The same installer as the Mac's. On Linux it installs mpv, ffmpeg, git and
+pipx with apt, dnf, pacman or zypper, then yt-dlp, subliminal and ffsubsync
+with pipx; clones this setup to `~/.config/mpv`; and adds an
+**mpv (Tiger Version)** entry to the desktop's *Open With* menu
+(`~/.local/share/applications/mpv-tiger.desktop`). It makes itself the
+default for nothing; the last lines it prints say how.
+
+**It needs mpv 0.39 or newer**, for folder playlists and the searchable track
+menus. Debian 13, Ubuntu 25.04 and later, Fedora, Arch and openSUSE
+Tumbleweed have one. **Ubuntu 24.04 LTS ships mpv 0.37**, which is too old —
+the installer says so, and the setup then mostly works, but opening one video
+no longer queues its folder and `Alt`+`c` / `Alt`+`l` do nothing.
+
+Tested in CI on Debian 13, Fedora and Arch (headless), on Windows Server
+2025, and on macOS 26: a real install, then `tests/smoke.py`. See
+`.github/workflows/test.yml`.
 
 ## What it does that stock mpv doesn't
 
@@ -92,6 +155,12 @@ Seeks are all `exact` (plain `seek` drifts to the nearest keyframe).
 `Space` still pauses. `Enter`, `>`, `<` and `9` are deliberately inert — they
 were easy to hit by accident and used to jump the playlist.
 
+On **Windows and Linux**, every `Cmd` chord above is the same key with `Ctrl`
+(`Ctrl`+`→`, `Ctrl`+`z`, `Ctrl`+`t`, and `Ctrl`+`Delete` for the bin) and
+`Option` is `Alt`. `i` opens File Explorer or the file manager instead of
+Finder. `p` is macOS-only. `Ctrl`+`←`/`→` were mpv's "jump to the previous/next
+subtitle line" there; this setup gives that up for the 10s/30s seeks.
+
 ## Layout
 
 ```
@@ -133,10 +202,20 @@ sounds/
 app/
   Info.plist            UTI claims (11 video types + public.folder)
   main.applescript      the wrapper's source
-  icons/                13 document icons: the mpv logo on a tile, with the file type
+  icons/                13 document icons: the mpv logo on a tile, with the file type;
+                        mpv.ico and mpv.png, the plain logo, for Windows and Linux
   mpv-player.app/       the bundle the PLAYER runs from, so it can be brought
                         to the front (MacOS/mpv -> /opt/homebrew/bin/mpv)
-install.sh            sets all of this up on a Mac (see Quick start)
+install.sh            sets all of this up on a Mac or on Linux (see Quick start)
+install.ps1           sets it up on Windows
+windows/
+  mpv-open.cs           the Windows launcher and helper, compiled by install.ps1
+linux/
+  mpv-tiger.desktop     the Open With entry install.sh writes on Linux
+tests/
+  smoke.py              headless test of the config on any of the three systems
+  linux-in-container.sh install + smoke test in a fresh Linux container
+.github/workflows/      runs both on macOS, Windows, Debian, Fedora and Arch
 LICENSE               MIT, for this repo's own files
 THIRD-PARTY-NOTICES.md  the bundled scripts, shaders, logo and sounds, and where they come from
 ```
@@ -158,6 +237,8 @@ pipx install ffsubsync                       # subtitle re-timing (Alt+b)
 git clone https://github.com/ryudexter/mpv-macos-setup.git ~/.config/mpv
 ```
 
+On Windows and Linux, see [Windows and Linux](#windows-and-linux) below.
+
 The `.app` wrapper is built from `app/main.applescript`:
 `osacompile -o /Applications/mpv.app app/main.applescript`, copy
 `app/Info.plist` over `Contents/Info.plist` (keeping the `CFBundleExecutable`
@@ -178,6 +259,128 @@ file types, so it never appears under Open With, and Spotlight does not index
 dot-folders, so searching "mpv" still finds only the wrapper (checked with
 `mdfind`). If it goes missing the launcher falls back to the bare binary and
 everything works except the raise.
+
+## Windows and Linux
+
+Nearly everything above is the same on all three systems: the keys, shuffle
+and its history, the folder as the playlist, resume points, the quiet OSC and
+the bar in the black strip, seek thumbnails, subtitle and audio choosing,
+the Anime4K ladder, skip-to-silence, clip export, one volume level, and one
+player window. The config files and scripts are shared; where a script has to
+ask the system for something, it asks each system its own way:
+
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| Opening files | `mpv.app` → `mpv-open` | `mpv-open.exe` | the desktop entry → `mpv-open` |
+| The one player's socket | `/tmp/mpv-single.sock` | `\\.\pipe\mpv-single` | `$XDG_RUNTIME_DIR/mpv-single.sock` |
+| Brought to the front on open | `open -a` on the player's bundle | `SetForegroundWindow` | up to the desktop: X11 usually, Wayland usually not |
+| `i` (reveal) | `open -R`, Finder | `SHOpenFolderAndSelectItems`, Explorer | `org.freedesktop.FileManager1` over D-Bus, else `xdg-open` on the folder |
+| `Cmd`/`Ctrl`+`Delete` | `/usr/bin/trash` | Recycle Bin, asking before it ever deletes outright | `gio trash`, else `trash-put`, else `kioclient` |
+| …the poof after it | `afplay` | a second, config-less `mpv` | a second, config-less `mpv` |
+| Battery, for `y`'s ladder | `pmset -g ps` | `GetSystemPowerStatus` | `/sys/class/power_supply` — a file read, no process at all |
+| yt-dlp | `/opt/homebrew/bin/yt-dlp` | `yt-dlp.exe` in the config folder | `PATH` (pipx's `~/.local/bin`) |
+| subliminal, ffsubsync | `~/.local/bin` (pipx) | `%USERPROFILE%\.local\bin` (pipx) | `~/.local/bin`, else `PATH` |
+| The setup | `~/.config/mpv` | `%APPDATA%\mpv` | `~/.config/mpv` |
+| Saved positions, the volume | `~/.config/mpv` | `%LOCALAPPDATA%\mpv` | `~/.local/state/mpv` |
+
+`mpv-open.exe` is `windows/mpv-open.cs`, compiled on your own PC by
+`install.ps1` with the .NET Framework compiler every Windows 10 and 11 has —
+so there is no prebuilt `.exe` in this repository to trust, and nothing for
+SmartScreen to flag. It is the Mac launcher's logic in C#, plus three small
+helpers the scripts call (`--reveal`, `--trash`, `--power`).
+
+**macOS only:** `p` and its two kinds of fullscreen (the other systems have
+one), `mpv.app` / `mpv-player.app`, QuickLook thumbnails in Finder, the
+[MPV Remote](https://github.com/ryudexter/mpv-remote) iPhone companion (a Mac
+program), and the second, decomposed spelling `0` `0` deletes (only APFS
+treats the two as one file). The macOS 27 audio workaround in `mpv.conf` stays
+on everywhere: it is lossless, and harmless on WASAPI and PipeWire.
+
+**Folders:** on Windows a folder's right-click menu has *Play with mpv (Tiger
+Version)*. On Linux there is no such entry, on purpose — claiming
+`inode/directory` in a desktop file can make a file manager open every folder
+with the player — so open a video in the folder instead; the folder becomes
+the playlist either way.
+
+### Installing by hand on Windows
+
+1. mpv: the `x86_64-pc-windows-msvc` zip (or `aarch64`) from
+   [mpv's releases](https://github.com/mpv-player/mpv/releases), unzipped
+   anywhere.
+2. This repository's files in `%APPDATA%\mpv`. If your mpv has a
+   `portable_config` folder beside `mpv.exe` (Scoop's does), they go there
+   instead — mpv then never reads `%APPDATA%\mpv`.
+3. [`yt-dlp.exe`](https://github.com/yt-dlp/yt-dlp/releases/latest) in the same
+   folder, for YouTube links. ffmpeg on `PATH`, and `pipx install subliminal`
+   and `pipx install ffsubsync`, for `b` and `Alt`+`b`.
+4. The launcher, from that folder (one line):
+   ```bat
+   %WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe /nologo /target:winexe /out:mpv-open.exe /win32icon:app\icons\mpv.ico /r:System.Web.Extensions.dll windows\mpv-open.cs
+   ```
+   Without it the player still runs, but there is no single window, `i`
+   falls back to `explorer /select,`, and `Ctrl`+`Delete` and the battery
+   check do nothing.
+5. Right-click a video → *Open with* → *Choose another app* → *Look for
+   another app on this PC* → `mpv-open.exe`.
+
+### Installing by hand on Linux
+
+```sh
+sudo apt install mpv ffmpeg git pipx libglib2.0-bin   # or dnf / pacman / zypper
+pipx install yt-dlp; pipx install subliminal; pipx install ffsubsync
+git clone https://github.com/ryudexter/mpv-macos-setup.git ~/.config/mpv
+```
+
+and, for *Open With*, `linux/mpv-tiger.desktop` copied to
+`~/.local/share/applications/` with `@@MPV_OPEN@@` replaced by
+`/home/<you>/.config/mpv/mpv-open`.
+
+### Porting notes
+
+What the Windows and Linux port ran into, so the next edit does not:
+
+- **mpv's path lists use `;` on Windows, not `:`.** `glsl-shaders` joined with
+  `:` reads as one nonexistent file there (`C:` is in every path), so `y`
+  sharpened nothing. `video-quality.lua` picks the separator.
+- **`explorer /select,` exits 1 whether it worked or not**, so its status
+  means nothing; hence `SHOpenFolderAndSelectItems` in `mpv-open.exe`.
+- **The common ways to recycle a file from a script delete it outright when
+  it cannot be recycled** — a network share, a USB stick, a file too big for
+  the bin — and say nothing (VB's `DeleteFile`, PowerShell's usual
+  one-liners). `mpv-open.exe --trash` sets `FOF_WANTNUKEWARNING`, so Windows
+  asks first; a "No" comes back as exit 2 and the OSD says the file was kept.
+- **A playing file can be moved to the bin on Windows**: mpv opens files with
+  `FILE_SHARE_DELETE` (v0.41 `osdep/io.c`), so playback carries on as on a Mac.
+- **`~~state` is the config folder only on a Mac.** On Linux it is
+  `~/.local/state/mpv` and on Windows `%LOCALAPPDATA%\mpv`, and mpv only creates
+  it when it first saves a position — so `global-sound.lua` makes it.
+- **`ytdl_path` is a list, and a conditional profile is late but not too
+  late.** `[windows-and-linux]` at the end of `mpv.conf` is applied after the
+  scripts have read their options, but before the first file's `on_load` hook,
+  and ytdl_hook looks for yt-dlp lazily and re-reads its options on change —
+  measured. thumbfast and mpv-webm read theirs once at load, so those two got a
+  `LOCAL PATCH` instead: a pinned path that does not exist falls back to a bare
+  `mpv`.
+- **A bare `mpv` in a subprocess is the right mpv on Windows**:
+  `CreateProcess` looks in the running program's own folder before `PATH`.
+- **`mpv.exe` runs with the UTF-8 code page** (its manifest says so), so the
+  scripts' `io.open` works with `Çağrı` in a path on Windows 10 1903 and later.
+- **Windows will not rename onto an existing file**, which the second
+  `Alt`+`b` on one subtitle does; `subtitle-sync.lua` removes it first there.
+- **Explorer starts one launcher per selected file**, where Finder hands one
+  launcher all of them. They queue on a mutex, and only the first open of a
+  one-second burst switches what is playing.
+- **mpv 0.41 does not put `~~/script-modules` on Lua's `package.path`**, so
+  each script carries its own two lines of platform detection rather than
+  sharing a module.
+- **`irm … | iex` runs the installer inside your own PowerShell**, so an
+  `exit` in it would close the window: `install.ps1` throws instead. And
+  Windows PowerShell 5.1 turns a program's stderr into errors, which
+  `$ErrorActionPreference = 'Stop'` makes fatal — every native call goes
+  through `Run`.
+- **`native-fs` exists on every mpv build** (v0.41 `options/options.c`) and
+  only macOS acts on it, so `mpv.conf` needs no guard for it — but `p` would
+  have said "separate Space" on Windows, so `fullscreen-mode.lua` stands down.
 
 ## Seek thumbnails
 

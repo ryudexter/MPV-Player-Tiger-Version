@@ -101,6 +101,7 @@
 
 local msg     = require "mp.msg"
 local options = require "mp.options"
+local utils   = require "mp.utils"
 
 local o = {
     -- Semicolon-separated. Matched as plain text anywhere in the file's full
@@ -237,7 +238,10 @@ for key, names in pairs(CHAINS) do
             msg.warn("shader missing, " .. key .. " preset unavailable: " .. paths[i])
         end
     end
-    joined[key] = table.concat(paths, ":")   -- mpv separates this list with ':'
+    -- mpv separates this list with ':' - except on Windows, where ':' is part
+    -- of every path (C:/...) and the separator is ';'. Joined with ':' there,
+    -- the whole chain reads as one nonexistent file and nothing is sharpened.
+    joined[key] = table.concat(paths, mp.get_property("platform") == "windows" and ";" or ":")
     usable[key] = all
 end
 
@@ -481,6 +485,50 @@ local function sample_load()
     if applied ~= before then msg.info("chain now " .. applied) end
 end
 
+-- What a change of power source does, whichever way it was found out.
+local function set_power(ac)
+    if ac == on_ac then return end          -- nothing moved
+    on_ac = ac
+    -- A different cable is a different regime: what the ladder learned
+    -- about what this machine could afford a minute ago does not carry
+    -- across, so the penalties and the clean streak both start again.
+    backoff, clean_time, promo_time = { [1] = 1, [2] = 1 }, 0, -1e9
+    if rung > ceiling() then rung = ceiling() end
+    mark_dirty()
+    msg.info(ac and ("on AC, ceiling " .. o.ac_max_chain)
+                 or ("on battery, " .. o.battery_chain))
+    apply_pacing()
+    apply()
+    -- Silent, including on plug and unplug. THE OSD RULE.
+end
+
+-- Linux keeps the answer in sysfs, so there it is a plain file read - no fork,
+-- and none of the audio trouble above. AC if any mains or USB supply is online;
+-- battery only if a battery says it is discharging; AC otherwise, which covers
+-- a desktop with no battery at all.
+local function linux_on_ac()
+    local base = "/sys/class/power_supply"
+    local function read(path)
+        local f = io.open(path, "r")
+        if not f then return nil end
+        local v = f:read("*l")
+        f:close()
+        return v
+    end
+    local discharging = false
+    for _, name in ipairs(utils.readdir(base, "dirs") or utils.readdir(base) or {}) do
+        local dir  = base .. "/" .. name
+        local kind = read(dir .. "/type")
+        if (kind == "Mains" or kind == "USB" or kind == "USB_C") and read(dir .. "/online") == "1" then
+            return true
+        end
+        if kind == "Battery" and read(dir .. "/status") == "Discharging" then
+            discharging = true
+        end
+    end
+    return not discharging
+end
+
 -- Polled, not subscribed: macOS raises no power-source event mpv can listen
 -- for, so the only way to know is to run `pmset -g ps`.
 --
@@ -513,9 +561,21 @@ end
 -- on checks the user had not asked for; every check is silent now, so it went.
 local function refresh_power()
     if not o.power_aware then return end
+    local platform = mp.get_property("platform")
+    if platform == "linux" then return set_power(linux_on_ac()) end
+
+    -- macOS: pmset. Windows: `mpv-open.exe --power` (the launcher install.ps1
+    -- builds), which prints ac / battery from the same GetSystemPowerStatus
+    -- call the taskbar's battery icon reads. Neither has a file to read.
+    local args = { "/usr/bin/pmset", "-g", "ps" }
+    if platform == "windows" then
+        args = { mp.command_native({ "expand-path", "~~/mpv-open.exe" }), "--power" }
+    elseif platform ~= "darwin" then
+        return                                  -- the BSDs: stay on AC
+    end
     mp.command_native_async({
         name          = "subprocess",
-        args          = { "/usr/bin/pmset", "-g", "ps" },
+        args          = args,
         capture_stdout = true,
         playback_only = false,
     }, function(ok, res)
@@ -523,21 +583,13 @@ local function refresh_power()
             msg.warn("could not read the power source, assuming AC")
             return
         end
-        -- "Now drawing from 'AC Power'" / "Now drawing from 'Battery Power'"
-        local ac = res.stdout:find("AC Power", 1, true) ~= nil
-        if ac == on_ac then return end          -- nothing moved
-        on_ac = ac
-        -- A different cable is a different regime: what the ladder learned
-        -- about what this machine could afford a minute ago does not carry
-        -- across, so the penalties and the clean streak both start again.
-        backoff, clean_time, promo_time = { [1] = 1, [2] = 1 }, 0, -1e9
-        if rung > ceiling() then rung = ceiling() end
-        mark_dirty()
-        msg.info(ac and ("on AC, ceiling " .. o.ac_max_chain)
-                     or ("on battery, " .. o.battery_chain))
-        apply_pacing()
-        apply()
-        -- Silent, including on plug and unplug. THE OSD RULE.
+        -- "Now drawing from 'AC Power'" / "Now drawing from 'Battery Power'",
+        -- or mpv-open.exe's "ac" / "battery" / "unknown"
+        if platform == "windows" then
+            set_power(not res.stdout:find("battery", 1, true))
+        else
+            set_power(res.stdout:find("AC Power", 1, true) ~= nil)
+        end
     end)
 end
 

@@ -33,13 +33,22 @@
 
 local utils = require "mp.utils"
 
-local HOME = os.getenv("HOME") or ""
+local PLATFORM = mp.get_property("platform")   -- "darwin", "windows", "linux", ...
+-- Python's own idea of home on Windows is USERPROFILE, and that is where pipx
+-- puts its .local\bin; HOME is usually unset there, or set by Git for itself.
+local HOME = (PLATFORM == "windows" and os.getenv("USERPROFILE") or os.getenv("HOME")) or ""
 
 -- Pinned absolute path, NOT bare "subliminal". A Finder-launched app does not
 -- inherit the shell PATH, so under mpv.app a bare name fails silently - the
 -- same trap that made thumbfast's helper a no-op until mpv_path was pinned.
 -- The pipx shim's own shebang is absolute, so nothing else needs PATH either.
-local SUBLIMINAL = HOME .. "/.local/bin/subliminal"
+--
+-- pipx uses ~/.local/bin on Windows and Linux too (subliminal.exe on Windows).
+-- Off the Mac a bare name is the fallback, because there apps DO get the
+-- user's PATH: a subliminal from a distro package, pip --user or Scoop is
+-- found that way.
+local SUBLIMINAL = HOME .. "/.local/bin/subliminal" .. (PLATFORM == "windows" and ".exe" or "")
+if PLATFORM ~= "darwin" and not utils.file_info(SUBLIMINAL) then SUBLIMINAL = "subliminal" end
 
 -- Wanted languages, best first, matching WANTED in subtitle-pick.lua. Both are
 -- requested in one search: subliminal downloads the best it can find for EACH
@@ -52,7 +61,7 @@ local PROVIDERS = { "bsplayer", "gestdown", "podnapisi", "tvsubtitles" }
 -- Used only when the video's own folder is read-only (a mounted disk image, a
 -- share). mpv would not auto-discover a subtitle here, so those get sub-added
 -- by absolute path instead.
-local FALLBACK_DIR = HOME .. "/.config/mpv/subs-fetched"
+local FALLBACK_DIR = mp.command_native({ "expand-path", "~~/subs-fetched" })
 
 -- Generous on purpose. A movie comes back from bsplayer in ~4s, but an episode
 -- goes to gestdown and tvsubtitles as well, and that measured 57s on House of
@@ -70,14 +79,30 @@ local function abs_path()
     local path = mp.get_property("path")
     if not path then return nil, "Nothing playing" end
     if path:match("^%a[%w+.-]*://") then return nil, "Not a local file" end
-    if not path:match("^/") then
-        local wd = mp.get_property("working-directory")
-        if wd then path = wd .. "/" .. path end
-    end
+    -- join_path leaves an absolute path alone, Windows ones (C:\) included
+    local wd = mp.get_property("working-directory")
+    if wd then path = utils.join_path(wd, path) end
     return path
 end
 
-local function dir_of(path) return (path:gsub("/[^/]*$", "")) end
+-- split_path splits on \ as well as / on Windows, and only on / elsewhere.
+local function dir_of(path)
+    local dir = utils.split_path(path)
+    return (dir:gsub(PLATFORM == "windows" and "[/\\]+$" or "/+$", ""))
+end
+local function basename(path)
+    local _, name = utils.split_path(path)
+    return name
+end
+
+local function mkdir_p(dir)
+    if PLATFORM == "windows" then
+        mp.command_native({ name = "subprocess", playback_only = false,
+                            args = { "cmd", "/d", "/c", "mkdir", (dir:gsub("/", "\\")) } })
+    else
+        os.execute("mkdir -p " .. string.format("%q", dir))
+    end
+end
 
 -- Asked directly, because there is no portable way to read permission bits
 -- through mp.utils.file_info - and the answer decides where the file goes.
@@ -132,7 +157,7 @@ local function apply_beside_video(ctx)
         for _, t in ipairs(mp.get_property_native("track-list") or {}) do
             local fn = t.type == "sub" and t["external-filename"]
             if fn then
-                local base = fn:gsub(".*/", "")
+                local base = basename(fn)
                 if base:sub(1, #want) == want then
                     mp.set_property_number("sid", t.id)
                     mp.set_property_bool("sub-visibility", true)
@@ -195,6 +220,12 @@ end
 local function finished(ok, res, err, ctx)
     stop_ticker()
     busy, handle = false, nil
+
+    if res and res.error_string == "init" then
+        osd("subliminal is not installed", 3)
+        mp.msg.error("could not run " .. SUBLIMINAL)
+        return
+    end
 
     local out   = (res and res.stdout) or ""
     local count = tonumber(out:match("Downloaded (%d+) subtitle"))
@@ -267,7 +298,7 @@ local function fetch(force)
     local path, why = abs_path()
     if not path then osd(why); return end
 
-    if not utils.file_info(SUBLIMINAL) then
+    if SUBLIMINAL ~= "subliminal" and not utils.file_info(SUBLIMINAL) then
         osd("subliminal is not installed", 3)
         mp.msg.error("expected the subliminal CLI at " .. SUBLIMINAL)
         return
@@ -291,11 +322,11 @@ local function fetch(force)
     local ctx = {
         path  = path,
         force = force,
-        stem  = (path:gsub(".*/", ""):gsub("%.[^.]*$", "")),
+        stem  = (basename(path):gsub("%.[^.]*$", "")),
     }
     local dir = dir_of(path)
     if not writable(dir) then
-        os.execute("mkdir -p " .. string.format("%q", FALLBACK_DIR))
+        mkdir_p(FALLBACK_DIR)
         ctx.dir    = FALLBACK_DIR
         ctx.before = srt_set(FALLBACK_DIR)
         args[#args + 1] = "-d"; args[#args + 1] = FALLBACK_DIR

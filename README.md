@@ -90,7 +90,8 @@ the installer says so, and the setup then mostly works, but opening one video
 no longer queues its folder and `Alt`+`c` / `Alt`+`l` do nothing.
 
 Tested in CI on Debian 13, Fedora and Arch (headless), on Windows Server
-2025, and on macOS 15; see `.github/workflows/test.yml`.
+2025, and on macOS 26: a real install, then `tests/smoke.py`. See
+`.github/workflows/test.yml`.
 
 ## What it does that stock mpv doesn't
 

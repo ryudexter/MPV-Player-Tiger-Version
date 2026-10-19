@@ -20,7 +20,7 @@ handful of Mac-only calls swapped for each system's own — see
 You need a Mac with [Homebrew](https://brew.sh). Paste this into Terminal:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ryudexter/MPV-Player-Tiger-Version/main/install.sh | bash
 ```
 
 That installs mpv and the tools the scripts use, puts this setup in
@@ -44,7 +44,7 @@ Paste this into PowerShell (Start menu → type *PowerShell* → Enter). No
 administrator rights needed:
 
 ```powershell
-irm https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ryudexter/MPV-Player-Tiger-Version/main/install.ps1 | iex
 ```
 
 That downloads mpv's official Windows build into `%LOCALAPPDATA%\Programs\mpv`
@@ -64,7 +64,7 @@ does not let an installer do that part. Running the installer again updates
 the setup in place; `-Uninstall` takes the *Open with* entries out again:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.ps1))) -Uninstall
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ryudexter/MPV-Player-Tiger-Version/main/install.ps1))) -Uninstall
 ```
 
 ### Linux
@@ -73,7 +73,7 @@ Paste this into a terminal. It asks for your password once, for the package
 manager:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ryudexter/MPV-Player-Tiger-Version/main/install.sh | bash
 ```
 
 The same installer as the Mac's. On Linux it installs mpv, ffmpeg, git and
@@ -234,7 +234,7 @@ brew install mpv yt-dlp pipx
 brew install --cask quicklook-video          # MKV/WebM thumbnails
 pipx install subliminal                      # subtitle downloads (the b key)
 pipx install ffsubsync                       # subtitle re-timing (Alt+b)
-git clone https://github.com/ryudexter/mpv-macos-setup.git ~/.config/mpv
+git clone https://github.com/ryudexter/MPV-Player-Tiger-Version.git ~/.config/mpv
 ```
 
 On Windows and Linux, see [Windows and Linux](#windows-and-linux) below.
@@ -328,7 +328,7 @@ the playlist either way.
 ```sh
 sudo apt install mpv ffmpeg git pipx libglib2.0-bin   # or dnf / pacman / zypper
 pipx install yt-dlp; pipx install subliminal; pipx install ffsubsync
-git clone https://github.com/ryudexter/mpv-macos-setup.git ~/.config/mpv
+git clone https://github.com/ryudexter/MPV-Player-Tiger-Version.git ~/.config/mpv
 ```
 
 and, for *Open With*, `linux/mpv-tiger.desktop` copied to

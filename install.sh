@@ -4,7 +4,7 @@
 # never overwrites anything it did not make, and moves aside anything it has to
 # replace. (Windows has its own: install.ps1.)
 #
-#   curl -fsSL https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/ryudexter/MPV-Player-Tiger-Version/main/install.sh | bash
 #
 # or from a clone:   ./install.sh
 #
@@ -27,7 +27,7 @@
 
 set -euo pipefail
 
-REPO=${MPV_SETUP_REPO:-https://github.com/ryudexter/mpv-macos-setup.git}
+REPO=${MPV_SETUP_REPO:-https://github.com/ryudexter/MPV-Player-Tiger-Version.git}
 CONF=${MPV_SETUP_CONF:-$HOME/.config/mpv}
 REMOTE_ZIP=https://github.com/ryudexter/mpv-remote/releases/latest/download/mpv-remote.zip
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
@@ -187,7 +187,7 @@ fi
 
 say "Putting the setup in $CONF"
 origin=$(git -C "$CONF" remote get-url origin 2>/dev/null || true)
-if [ -d "$CONF/.git" ] && { [ "$origin" = "$REPO" ] || [[ $origin == *mpv-macos-setup* ]]; }; then
+if [ -d "$CONF/.git" ] && { [ "$origin" = "$REPO" ] || [[ $origin == *MPV-Player-Tiger-Version* || $origin == *mpv-macos-setup* ]]; }; then
     note "Already there. To update it later:  git -C \"$CONF\" pull"
 else
     # Clone next to it first, so a failed clone leaves the old config in place.

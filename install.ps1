@@ -4,12 +4,12 @@ fills in whatever is missing from an existing install. Safe to run again: it
 moves aside anything it has to replace, and an update keeps your saved
 positions and settings.
 
-  irm https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/ryudexter/MPV-Player-Tiger-Version/main/install.ps1 | iex
 
 or from a clone:   powershell -ExecutionPolicy Bypass -File install.ps1
 
 Options (through irm, pass them like this):
-  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ryudexter/mpv-macos-setup/main/install.ps1))) -NoDeps
+  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ryudexter/MPV-Player-Tiger-Version/main/install.ps1))) -NoDeps
 
   -NoDeps          install nothing else: use the mpv already on this PC
   -NoAssociations  don't add mpv to "Open with", the folder menu or the Start menu
@@ -48,7 +48,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'      # Windows PowerShell's progress bar makes downloads crawl
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-$Repo     = 'ryudexter/mpv-macos-setup'
+$Repo     = 'ryudexter/MPV-Player-Tiger-Version'
 $RepoGit  = "https://github.com/$Repo.git"
 $RepoZip  = "https://github.com/$Repo/archive/refs/heads/main.zip"
 $AppName  = 'mpv (Tiger Version)'
